@@ -39,6 +39,7 @@ Classify the incoming request:
 | **Audit / Discipline** | Review, verification, safety checks, merge gates | `methodology-tdd.md` |
 | **Scaffold / Reference** | Code generation, templates, naming rules, API reference | `methodology-scaffold.md` |
 | **Workflow / Orchestrator** | Multi-phase process, skill dispatch, parallel agents, gates | `methodology-orchestrator.md` |
+| **Research / Synthesis** | Data gathering, analysis, content creation, reports | `methodology-research.md` |
 
 If unclear → ask user to confirm type before proceeding.
 
@@ -52,6 +53,7 @@ If unclear → ask user to confirm type before proceeding.
    - Audit/Discipline → `methodology-tdd.md`
    - Scaffold/Reference → `methodology-scaffold.md`
    - Workflow/Orchestrator → `methodology-orchestrator.md`
+   - Research/Synthesis → `methodology-research.md`
 
 3. **Write the skill** following loaded methodology + conventions
 
@@ -104,7 +106,7 @@ Follow `methodology-improving.md` for fix approach based on issue type.
 ## Checklist
 
 - [ ] Intent classified (CREATE or IMPROVE)
-- [ ] Skill type classified (Audit / Scaffold / Orchestrator)
+- [ ] Skill type classified (Audit / Scaffold / Orchestrator / Research)
 - [ ] `conventions.md` loaded and followed
 - [ ] `element-matrix.md` consulted for element selection
 - [ ] Correct methodology file loaded and followed

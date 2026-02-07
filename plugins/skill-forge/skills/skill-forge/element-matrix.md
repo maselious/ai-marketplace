@@ -4,23 +4,27 @@ Which structural elements to include based on skill type.
 
 ## Decision Table
 
-| Element | Audit/Discipline | Scaffold/Reference | Orchestrator |
-|---------|-----------------|-------------------|-------------|
-| Flowchart (dot) | - | - | always |
-| Gates (user confirmation) | - | - | always |
-| Baseline test (RED phase) | always | - | optional |
-| Report template | always | - | - |
-| BLOCKER/WARN/INFO classification | always | - | optional |
-| Critical Violations (Block Merge) | if safety-related | - | - |
-| Rationalization table | optional | - | - |
-| Code templates | - | always | - |
-| Naming conventions table | - | if generates files | - |
-| Quick reference table | - | always | - |
-| TodoWrite upfront | - | - | always |
-| Skill dispatch table | - | - | if invokes skills |
-| Step 0: parallel dispatch | - | - | if uses subagents |
-| Scenario test cases | if verifiable | - | - |
-| Docker verification | if produces code | if produces code | always |
+| Element | Audit/Discipline | Scaffold/Reference | Orchestrator | Research/Synthesis |
+|---------|-----------------|-------------------|-------------|-------------------|
+| Flowchart (dot) | - | - | always | optional |
+| Gates (user confirmation) | - | - | always | optional |
+| Baseline test (RED phase) | always | - | optional | - |
+| Report template | always | - | - | optional |
+| BLOCKER/WARN/INFO classification | always | - | optional | - |
+| Critical Violations (Block Merge) | if safety-related | - | - | - |
+| Rationalization table | optional | - | - | - |
+| Code templates | - | always | - | - |
+| Naming conventions table | - | if generates files | - | - |
+| Quick reference table | - | always | - | - |
+| TodoWrite upfront | - | - | always | optional |
+| Skill dispatch table | - | - | if invokes skills | - |
+| Step 0: parallel dispatch | - | - | if uses subagents | if uses subagents |
+| Scenario test cases | if verifiable | - | - | - |
+| Docker verification | if produces code | if produces code | always | - |
+| Sources catalog | - | - | - | always |
+| Analysis framework | - | - | - | always |
+| Quality criteria | - | - | - | always |
+| Output spec | - | - | - | always |
 
 ## How to Read This Table
 

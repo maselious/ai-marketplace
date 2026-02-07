@@ -100,6 +100,7 @@ No hard limit. Prioritize completeness over brevity. Typical ranges:
 | Scaffold/Reference | 100-200 lines |
 | Audit/Discipline | 150-300 lines |
 | Orchestrator | 200-350 lines |
+| Research/Synthesis | 100-250 lines |
 
 ## Bilingual Context
 
