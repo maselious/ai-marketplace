@@ -6,8 +6,5 @@
     "name": "Marisko"
   },
   "homepage": "https://github.com/maselious/ai-marketplace",
-  "keywords": ["skills", "forge", "create", "improve", "audit"],
-  "skills": ["./skills/"],
-  "agents": ["./agents/"],
-  "commands": ["./commands/"]
+  "keywords": ["skills", "forge", "create", "improve", "audit"]
 }

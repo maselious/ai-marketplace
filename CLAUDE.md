@@ -23,7 +23,7 @@ plugins/{plugin-name}/
 ### Plugin Manifest (plugin.json)
 - `name`: kebab-case, must match directory name and marketplace entry
 - `version`: semver, bump on any change to plugin contents
-- `skills`/`agents`/`commands`: arrays of relative paths to component directories
+- Components (`skills/`, `agents/`, `commands/`) are auto-discovered — do NOT list them in plugin.json
 
 ### Marketplace Catalog (marketplace.json)
 - Each plugin `source` is a relative path from repo root: `"./plugins/{name}"`
