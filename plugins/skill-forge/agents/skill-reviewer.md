@@ -1,6 +1,8 @@
 ---
 name: skill-reviewer
 description: Deep quality analysis of skills against conventions and element matrix. Use when auditing skill quality, checking consistency, or validating a newly created skill.
+model: sonnet
+color: cyan
 tools:
   - Glob
   - Grep

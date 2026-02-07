@@ -1,6 +1,7 @@
 ---
 name: forge
 description: Quick entry point for skill-forge. Create, improve, or audit skills.
+argument-hint: "[create | improve <skill> | audit [skill]]"
 ---
 
 # /forge — Skill Forge Quick Menu

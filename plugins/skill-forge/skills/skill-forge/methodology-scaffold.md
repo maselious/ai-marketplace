@@ -71,7 +71,7 @@ Provide a condensed reference for experienced users:
 
 1. Create file: `path/{name}.ts`
 2. Register in: `path/index.ts`
-3. Verify: `docker exec ucare-api yarn lint`
+3. Verify: `docker exec <container> <lint-command>`
 ```
 
 ## Structural Pattern
@@ -80,7 +80,6 @@ Provide a condensed reference for experienced users:
 # Skill Name
 
 ## Overview
-## When to Use
 ## Decision Points (if branching)
 
 ## Process

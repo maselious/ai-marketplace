@@ -114,7 +114,6 @@ Step 0 pattern:
 # Skill Name
 
 ## Overview
-
 ## Process Overview
 [Flowchart in dot notation]
 

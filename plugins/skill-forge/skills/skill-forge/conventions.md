@@ -52,9 +52,8 @@ Only reference `skill-forge` for structural issues with the skill itself. All ot
 ## Naming
 
 - Skill directory: kebab-case (`audit-security`, `migration`)
-- File names in CQRS: kebab-case (`complete-task.command.ts`)
-- API DTOs: snake_case
 - No transliterations from Russian
+- Project-specific naming rules (file casing, DTO style) belong in the skill itself, not here
 
 ## Tables
 
@@ -75,10 +74,11 @@ Preferred format for:
 Skills that produce code changes SHOULD end with verification:
 
 ```bash
-docker exec ucare-api yarn lint
-docker logs ucare-api --tail 50
+docker exec <container> <lint-command>
+docker logs <container> --tail 50
 ```
 
+Replace `<container>` and `<lint-command>` with project-specific values.
 Skip for skills that don't produce runnable code (pure reference, pure analysis).
 
 ## CLAUDE.md Registration

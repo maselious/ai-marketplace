@@ -75,7 +75,6 @@ Write the skill with the minimum rules needed to catch all baseline failures:
 # Skill Name
 
 ## Overview
-## When to Use
 ## Context (if domain background needed)
 
 ## Process

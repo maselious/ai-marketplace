@@ -1,9 +1,11 @@
 ---
 name: skill-forge
-description: Use when creating new skills, improving existing skills, or when Self-Improvement Protocol fires. Triggers on "create skill", "need a skill for", "pattern repeats", "should be a skill", "improve skill", "skill is wrong", "update skill", "skill gap", "fix skill".
+description: Use when creating new skills, improving existing skills, or when Self-Improvement Protocol fires. Triggers on 'create skill', 'build a skill', 'need a skill for', 'pattern repeats', 'should be a skill', 'improve skill', 'fix skill'.
 ---
 
 # Skill Forge
+
+## Overview
 
 Unified controller for skill lifecycle: creation and improvement. Classifies intent and type, loads the right methodology, applies user conventions.
 
@@ -15,8 +17,6 @@ Classify the incoming request:
 |--------|--------|------|
 | "create skill", "new skill", "pattern repeats", "should be a skill" | **CREATE** | → Phase 1 |
 | "improve skill", "fix skill", "skill gap", "skill missed", "Self-Improvement Protocol fired" | **IMPROVE** | → Phase 4 |
-
----
 
 ## CREATE Flow (Phases 1–3)
 
@@ -68,8 +68,6 @@ If unclear → ask user to confirm type before proceeding.
 3. **If skill is optional** — do NOT modify CLAUDE.md
 4. **Inform user:** skill name, location, triggers, type, when to use
 
----
-
 ## IMPROVE Flow (Phases 4–6)
 
 ### Phase 4: Identify & Classify
@@ -103,7 +101,16 @@ Follow `methodology-improving.md` for fix approach based on issue type.
 - Related skills not broken
 - Changes are minimal — didn't rewrite what worked
 
----
+## Checklist
+
+- [ ] Intent classified (CREATE or IMPROVE)
+- [ ] Skill type classified (Audit / Scaffold / Orchestrator)
+- [ ] `conventions.md` loaded and followed
+- [ ] `element-matrix.md` consulted for element selection
+- [ ] Correct methodology file loaded and followed
+- [ ] Duplicate check performed (project + user skill dirs)
+- [ ] Placement decided (project-specific vs cross-project)
+- [ ] CLAUDE.md registration evaluated
 
 ## Self-Improvement Protocol
 
