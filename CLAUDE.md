@@ -18,8 +18,7 @@ plugins/{plugin-name}/
 
 ### Adding a Plugin
 1. Create `plugins/{name}/` with `.claude-plugin/plugin.json`
-2. Add entry to `.claude-plugin/marketplace.json` -> `plugins` array
-3. Bump marketplace `metadata.version` on any change
+2. Add entry to `.claude-plugin/marketplace.json` -> `plugins` array with `"source": "./plugins/{name}"`
 
 ### Plugin Manifest (plugin.json)
 - `name`: kebab-case, must match directory name and marketplace entry
@@ -27,8 +26,8 @@ plugins/{plugin-name}/
 - `skills`/`agents`/`commands`: arrays of relative paths to component directories
 
 ### Marketplace Catalog (marketplace.json)
-- `metadata.pluginRoot`: `"./plugins"` -- all plugin sources are relative to this
-- Each plugin `source` is relative to `pluginRoot`
+- Each plugin `source` is a relative path from repo root: `"./plugins/{name}"`
+- Must include `$schema` field for validation
 
 ### Skills Convention
 - Controller pattern: `SKILL.md` is the entry point, reference files are lazy-loaded

@@ -1,18 +1,15 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "marisko-skills",
+  "description": "Personal skill marketplace for AI-assisted development",
   "owner": {
     "name": "Marisko",
     "email": "maselious@gmail.com"
   },
-  "metadata": {
-    "description": "Personal skill marketplace for AI-assisted development",
-    "version": "1.1.0",
-    "pluginRoot": "./plugins"
-  },
   "plugins": [
     {
       "name": "skill-forge",
-      "source": "skill-forge",
+      "source": "./plugins/skill-forge",
       "description": "Unified skill lifecycle: creation, improvement, auditing. Includes skill-reviewer agent and /forge, /skills-inventory commands.",
       "version": "1.1.0",
       "author": {
