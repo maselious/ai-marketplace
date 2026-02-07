@@ -1,0 +1,13 @@
+{
+  "name": "skill-forge",
+  "version": "1.0.0",
+  "description": "Unified skill lifecycle: creation, improvement, auditing",
+  "author": {
+    "name": "Marisko"
+  },
+  "homepage": "https://github.com/maselious/ai-marketplace",
+  "keywords": ["skills", "forge", "create", "improve", "audit"],
+  "skills": ["./skills/"],
+  "agents": ["./agents/"],
+  "commands": ["./commands/"]
+}

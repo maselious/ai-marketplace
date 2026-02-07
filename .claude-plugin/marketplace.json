@@ -1,0 +1,23 @@
+{
+  "name": "marisko-skills",
+  "owner": {
+    "name": "Marisko",
+    "email": "maselious@gmail.com"
+  },
+  "metadata": {
+    "description": "Personal skill marketplace for AI-assisted development",
+    "version": "1.0.0",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "skill-forge",
+      "source": "skill-forge",
+      "description": "Unified skill lifecycle: creation, improvement, auditing. Includes skill-reviewer agent and /forge, /skills-inventory commands.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Marisko"
+      }
+    }
+  ]
+}
