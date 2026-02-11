@@ -1,0 +1,10 @@
+{
+  "name": "docker-worktree",
+  "version": "0.1.0",
+  "description": "Docker-aware git worktree lifecycle: readiness assessment, environment isolation, port allocation, and teardown",
+  "author": {
+    "name": "Marisko"
+  },
+  "homepage": "https://github.com/maselious/ai-marketplace",
+  "keywords": ["docker", "worktree", "git", "isolation", "ports", "compose"]
+}
