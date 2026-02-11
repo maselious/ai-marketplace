@@ -1,6 +1,6 @@
 ---
-name: docker-worktree
-description: Use when creating isolated git worktrees for Docker-based or frontend projects, setting up parallel development environments, or tearing down worktree stacks. Triggers on 'docker worktree', 'create worktree', 'parallel environment', 'isolated workspace', 'teardown worktree', 'worktree docker', 'worktree cleanup', 'frontend worktree'.
+name: dev-worktree
+description: Use when creating isolated git worktrees for Docker-based or frontend projects, setting up parallel development environments, or tearing down worktree stacks. Triggers on 'dev worktree', 'create worktree', 'parallel environment', 'isolated workspace', 'teardown worktree', 'docker worktree', 'worktree cleanup', 'frontend worktree'.
 ---
 
 # Docker-Aware Git Worktree Lifecycle
@@ -15,7 +15,7 @@ Manage the full lifecycle of git worktrees for both Docker-based backends and fr
 - **Backend (Docker):** Full Docker Compose isolation with port offsets
 - **Frontend:** Package install + backend URL configuration + codegen
 
-**Announce at start:** "I'm using the docker-worktree skill to [set up / tear down] an isolated [Docker / frontend] workspace."
+**Announce at start:** "I'm using the dev-worktree skill to [set up / tear down] an isolated [Docker / frontend] workspace."
 
 ## Process Overview
 

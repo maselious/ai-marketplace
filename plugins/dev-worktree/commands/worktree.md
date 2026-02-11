@@ -24,16 +24,16 @@ Parse the command arguments:
 | Pattern | Intent | Action |
 |---------|--------|--------|
 | No arguments | Ambiguous | Ask: setup or teardown? |
-| `setup <branch>` or `create <branch>` | Create new worktree | Load docker-worktree skill → Phase 0 (auto-detects project type) |
-| `teardown [slug]` or `cleanup [slug]` or `remove [slug]` | Remove worktree | Load docker-worktree skill → Teardown mode |
+| `setup <branch>` or `create <branch>` | Create new worktree | Load dev-worktree skill → Phase 0 (auto-detects project type) |
+| `teardown [slug]` or `cleanup [slug]` or `remove [slug]` | Remove worktree | Load dev-worktree skill → Teardown mode |
 | `list` or `ls` or `status` | List worktrees | Show all worktrees with status |
-| `<branch-name>` (no keyword) | Create new worktree | Load docker-worktree skill → Phase 0 |
+| `<branch-name>` (no keyword) | Create new worktree | Load dev-worktree skill → Phase 0 |
 
 ## Execution
 
 ### For setup/teardown
 
-Load and follow the `docker-worktree` skill. Pass the parsed intent and branch name. The skill auto-detects whether this is a Docker backend or frontend project.
+Load and follow the `dev-worktree` skill. Pass the parsed intent and branch name. The skill auto-detects whether this is a Docker backend or frontend project.
 
 ### For list
 

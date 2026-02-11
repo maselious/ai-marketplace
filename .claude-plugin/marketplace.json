@@ -17,8 +17,8 @@
       }
     },
     {
-      "name": "docker-worktree",
-      "source": "./plugins/docker-worktree",
+      "name": "dev-worktree",
+      "source": "./plugins/dev-worktree",
       "description": "Git worktree lifecycle for Docker backends and frontend projects: readiness assessment, environment isolation, port allocation, backend URL discovery, and teardown.",
       "version": "0.2.0",
       "author": {
