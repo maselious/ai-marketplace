@@ -1,6 +1,6 @@
 ---
 name: dev-worktree
-description: Use when creating isolated git worktrees for Docker-based or frontend projects, setting up parallel development environments, or tearing down worktree stacks. Triggers on 'dev worktree', 'create worktree', 'parallel environment', 'isolated workspace', 'teardown worktree', 'docker worktree', 'worktree cleanup', 'frontend worktree'.
+description: Use when creating isolated git worktrees for Docker-based or frontend projects, setting up parallel development environments, tearing down worktree stacks, or linking worktree creation to backlog tasks. Triggers on 'dev worktree', 'create worktree', 'parallel environment', 'isolated workspace', 'teardown worktree', 'docker worktree', 'worktree cleanup', 'frontend worktree', 'worktree for task', 'backlog worktree', 'link task to worktree'.
 ---
 
 # Docker-Aware Git Worktree Lifecycle
@@ -20,7 +20,7 @@ Manage the full lifecycle of git worktrees for both Docker-based backends and fr
 ## Process Overview
 
 ```
-Phase 0: Guard + Classify
+Phase 0: Guard + Classify + Backlog Detect
          │
          ├─ Backend (Docker) ──► Phase 1: Readiness
          │                       │
@@ -28,6 +28,7 @@ Phase 0: Guard + Classify
          │                       │            GATE: port mappings
          │                       │            │
          │                       │            Phase 4: Deploy Docker
+         │                       │            Backlog Update (if detected)
          │                       │            Phase 5: Report
          │                       │
          │                       └─ Not Ready ──► Phase 2: Setup Guide
@@ -38,6 +39,7 @@ Phase 0: Guard + Classify
          │               F2: Backend Discovery
          │               F3: Configure .env
          │               F4: Codegen + Verify
+         │               Backlog Update (if detected)
          │               F5: Report + Save Learnings
          │
          ├─ Already in worktree? → Teardown mode
@@ -91,6 +93,25 @@ Determine intent from user's request:
 | "create", "setup", "new worktree", "start feature" | **Setup** → Phase 1 or Frontend Mode |
 | "teardown", "cleanup", "remove", "destroy", "done with" | **Teardown** → Teardown Mode |
 | Ambiguous | Ask user |
+
+### Backlog detection (Setup mode only)
+
+When creating a worktree, detect if the project has a backlog and if the user linked a task.
+
+Load `references/backlog-integration.md` for detection rules and supported formats.
+
+1. **Scan for backlog file** — check root for `BACKLOG.md`, `TODO.md`, `TASKS.md` (case-insensitive), or a backlog section in `CLAUDE.md` (see reference file for full list of supported section names)
+2. **Check if user mentioned a task** — look for task references in the user's request (e.g., "create worktree for 'payment gateway'", "worktree for task: add auth")
+3. **Match task** — find the task line in the backlog using substring search
+
+| Backlog found? | Task mentioned? | Action |
+|----------------|----------------|--------|
+| Yes | Yes | Match task, remember for update after worktree creation |
+| Yes | No | Ask: "Backlog found. Create worktree for a specific task?" |
+| No | Yes | Inform: "No backlog file found. Skipping backlog update." |
+| No | No | Skip silently |
+
+**Store matched task info for later update** (file path, line number, original line text, branch name, worktree path). The actual update happens after worktree creation — see "Backlog Update" section below.
 
 ## Phase 1: Readiness Assessment
 
@@ -267,6 +288,35 @@ Hit the health endpoint (if the project has one):
 curl -s http://localhost:<api-port>/health || curl -s http://localhost:<api-port>/api/health
 ```
 
+## Backlog Update
+
+**Trigger:** A backlog task was matched during Phase 0 backlog detection.
+
+**When:** After worktree is created and environment is ready (after Phase 4 for backend, after F4 for frontend), but before the final report.
+
+Load `references/backlog-integration.md` for format details and edge cases.
+
+### Steps
+
+1. **Edit the backlog file** in the original repo directory (NOT in the worktree):
+   - Replace `- [ ]` with `- [-]` on the matched task line
+   - Append status suffix: `(🔄 branch: <branch-name>, worktree: <worktree-path>)`
+
+2. **Do NOT commit** — leave the change uncommitted. User decides when to commit.
+
+3. **Include in the report:**
+   ```
+   Backlog updated:
+     File:     <backlog-file>
+     Task:     "<task text>"
+     Status:   [-] in progress
+     Branch:   <branch-name>
+     Worktree: <worktree-path>
+     ⚠ Change is uncommitted.
+   ```
+
+**Skip if:** no backlog detected, no task matched, or user declined linking.
+
 ## Phase 5: Report
 
 Present the final summary:
@@ -386,6 +436,10 @@ Quick verification:
 npx tsc --noEmit 2>&1 | head -10
 ```
 
+### Backlog Update (Frontend)
+
+After F4 codegen and verification succeeds, if a backlog task was matched in Phase 0 — apply the Backlog Update steps from the "Backlog Update" section above. Edit the backlog file in the original repo directory, mark the task as `[-]` with branch and worktree info, do not commit. Edit the file in the original repo directory, do not commit.
+
 ### F5: Report + Save Learnings
 
 ```
@@ -464,7 +518,26 @@ cd <main-repo-root>
 git worktree remove .worktrees/<slug>
 ```
 
-### Step 5: Clean up branch (optional)
+### Step 5: Update backlog (if linked)
+
+Search the backlog for a task linked to this worktree:
+
+```bash
+grep -ni "🔄.*worktree: .worktrees/<slug>" BACKLOG.md backlog.md TODO.md todo.md TASKS.md tasks.md CLAUDE.md 2>/dev/null
+```
+
+If found, ask user:
+```
+Task "Implement payment gateway" is linked to this worktree.
+What should happen to the backlog entry?
+  1. Mark as completed [x]
+  2. Revert to pending [ ]
+  3. Leave as-is [-]
+```
+
+Update the line accordingly and remove the `(🔄 ...)` suffix if marking as completed or pending.
+
+### Step 6: Clean up branch (optional)
 
 Ask user:
 ```
@@ -475,7 +548,7 @@ Branch <name> still exists. What to do?
 
 If delete: `git branch -D <branch-name>`
 
-### Step 6: Report
+### Step 7: Report
 
 ```
 Teardown complete:
@@ -501,6 +574,10 @@ Teardown complete:
 | Port conflict detected | Increment index, recalculate |
 | Unknown package manager | Check `packageManager` in package.json → ask user |
 | Frontend backend URL unknown | Scan .env files → check running services → ask |
+| Backlog file found | Detect format, match user-specified task, update after worktree created |
+| Backlog not found | Skip silently |
+| Task not found in backlog | Ask: add it or skip? |
+| Tearing down linked task | Ask: mark completed, revert to pending, or leave as-is |
 
 ## Common Mistakes
 
@@ -536,6 +613,7 @@ Teardown complete:
 - [ ] Docker stack running and healthy
 - [ ] Migrations applied
 - [ ] API accessible at worktree port
+- [ ] Backlog updated (if task linked)
 - [ ] Teardown instructions provided
 
 ### Frontend Mode
@@ -546,6 +624,7 @@ Teardown complete:
 - [ ] Backend URL identified and configured
 - [ ] Codegen/post-install steps run (if any)
 - [ ] Dev server port checked for conflicts
+- [ ] Backlog updated (if task linked)
 - [ ] Learnings saved to CLAUDE.md (if first time)
 
 ## Self-Improvement Protocol
@@ -557,4 +636,5 @@ After each use:
 4. **New frontend framework or package manager?** → Update `references/frontend-worktree.md`
 5. **New project connection discovered?** → Update `references/project-connections.md` with detection pattern
 6. **Project setup had non-obvious steps?** → Suggest updating project's CLAUDE.md
-7. **Structural issue with this skill?** → Invoke `skill-forge` in IMPROVE mode
+7. **New backlog format not recognized?** → Update `references/backlog-integration.md` with the new format
+8. **Structural issue with this skill?** → Invoke `skill-forge` in IMPROVE mode

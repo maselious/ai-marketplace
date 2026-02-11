@@ -1,10 +1,10 @@
 {
   "name": "dev-worktree",
-  "version": "0.2.0",
-  "description": "Git worktree lifecycle for Docker backends and frontend projects: readiness assessment, environment isolation, port allocation, backend URL discovery, and teardown",
+  "version": "0.3.0",
+  "description": "Git worktree lifecycle for Docker backends and frontend projects: readiness assessment, environment isolation, port allocation, backend URL discovery, backlog integration, and teardown",
   "author": {
     "name": "Marisko"
   },
   "homepage": "https://github.com/maselious/ai-marketplace",
-  "keywords": ["docker", "worktree", "git", "isolation", "ports", "frontend", "backend"]
+  "keywords": ["docker", "worktree", "git", "isolation", "ports", "frontend", "backend", "backlog"]
 }
