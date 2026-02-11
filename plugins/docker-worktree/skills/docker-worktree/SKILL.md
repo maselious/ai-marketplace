@@ -1,59 +1,53 @@
 ---
 name: docker-worktree
-description: Use when creating isolated git worktrees for Docker-based projects, setting up parallel development environments, or tearing down worktree Docker stacks. Triggers on 'docker worktree', 'create worktree', 'parallel environment', 'isolated workspace', 'teardown worktree', 'worktree docker', 'worktree cleanup'.
+description: Use when creating isolated git worktrees for Docker-based or frontend projects, setting up parallel development environments, or tearing down worktree stacks. Triggers on 'docker worktree', 'create worktree', 'parallel environment', 'isolated workspace', 'teardown worktree', 'worktree docker', 'worktree cleanup', 'frontend worktree'.
 ---
 
 # Docker-Aware Git Worktree Lifecycle
 
 ## Overview
 
-Manage the full lifecycle of git worktrees in Docker-based projects: assess readiness, configure isolated environments with unique ports, deploy Docker stacks, and tear down cleanly.
+Manage the full lifecycle of git worktrees for both Docker-based backends and frontend projects: assess readiness, configure isolated environments, deploy stacks, connect frontends to correct backends, and tear down cleanly.
 
-**Core principle:** Each worktree gets its own Docker Compose project with isolated ports, containers, volumes, and database — zero conflicts with the main workspace or other worktrees.
+**Core principle:** Each worktree gets its own isolated environment — Docker backends get unique ports/containers/volumes, frontends get correct backend URLs and dependency installs.
 
-**Announce at start:** "I'm using the docker-worktree skill to [set up / tear down] an isolated Docker workspace."
+**Two modes:**
+- **Backend (Docker):** Full Docker Compose isolation with port offsets
+- **Frontend:** Package install + backend URL configuration + codegen
+
+**Announce at start:** "I'm using the docker-worktree skill to [set up / tear down] an isolated [Docker / frontend] workspace."
 
 ## Process Overview
 
 ```
-Phase 0: Guard ──► Not Docker? STOP
-                   Already in worktree? → Teardown mode
+Phase 0: Guard + Classify
          │
-Phase 1: Readiness Assessment ──► Load readiness-checklist.md
+         ├─ Backend (Docker) ──► Phase 1: Readiness
+         │                       │
+         │                       ├─ Ready ──► Phase 3: Worktree + Env
+         │                       │            GATE: port mappings
+         │                       │            │
+         │                       │            Phase 4: Deploy Docker
+         │                       │            Phase 5: Report
+         │                       │
+         │                       └─ Not Ready ──► Phase 2: Setup Guide
+         │                                        GATE → re-assess
          │
-         ├─ Ready ────────────────► Phase 3
+         ├─ Frontend ──► Frontend Mode (F1–F5)
+         │               F1: Worktree + Install
+         │               F2: Backend Discovery
+         │               F3: Configure .env
+         │               F4: Codegen + Verify
+         │               F5: Report + Save Learnings
          │
-         └─ Not Ready ──► Phase 2: Setup Guide (docker-setup-guide.md)
-                          GATE: user applies changes
-                          Re-assess → Phase 3
+         ├─ Already in worktree? → Teardown mode
          │
-Phase 3: Create Worktree + Configure Env
-         Load env-configuration.md + worktree-lifecycle.md
-         GATE: confirm port mappings
-         │
-Phase 4: Deploy Docker Stack
-         Load migration-patterns.md + project CLAUDE.md
-         │
-Phase 5: Report
-         Ports, URLs, teardown instructions
+         └─ Not a project? → STOP
 ```
 
-## Phase 0: Guard
+## Phase 0: Guard + Classify
 
-Determine context before proceeding.
-
-### Docker detection
-
-```bash
-ls docker-compose.yml docker-compose.yaml compose.yml compose.yaml Dockerfile 2>/dev/null
-```
-
-**If no Docker files found:**
-> This project doesn't appear to use Docker Compose. The docker-worktree skill requires a Docker Compose configuration. Would you like to:
-> 1. Create a Docker Compose setup for this project
-> 2. Use plain git worktrees without Docker (use `using-git-worktrees` skill instead)
-
-STOP. Do not proceed without Docker Compose.
+Determine project type and intent before proceeding.
 
 ### Worktree detection
 
@@ -66,13 +60,35 @@ git worktree list
 - Ask: "You're inside a worktree. Do you want to tear down this environment?"
 - If yes → jump to Teardown Mode
 
+### Project type classification
+
+Classify the current project:
+
+```bash
+# Check for Docker Compose (backend indicator)
+ls docker-compose.yml docker-compose.yaml compose.yml compose.yaml 2>/dev/null
+
+# Check for frontend frameworks
+ls next.config.* nuxt.config.* vite.config.* app.config.* angular.json 2>/dev/null
+
+# Check package.json for framework indicators
+grep -E '"(react|vue|svelte|angular|next|nuxt|@tanstack)"' package.json 2>/dev/null
+```
+
+| Detection | Project type | Flow |
+|-----------|-------------|------|
+| Docker Compose + backend service (API/DB) | **Backend (Docker)** | → Phase 1 (Readiness) |
+| Frontend framework, no Docker Compose (or Docker for prod only) | **Frontend** | → Frontend Mode |
+| Docker Compose + frontend framework (hybrid like Strapi, Medusa) | **Backend (Docker)** | → Phase 1 (hybrid treated as backend) |
+| No git repo / no package.json | **Unknown** | STOP — ask user |
+
 ### Mode selection
 
 Determine intent from user's request:
 
 | Signal | Mode |
 |--------|------|
-| "create", "setup", "new worktree", "start feature" | **Setup** → Phase 1 |
+| "create", "setup", "new worktree", "start feature" | **Setup** → Phase 1 or Frontend Mode |
 | "teardown", "cleanup", "remove", "destroy", "done with" | **Teardown** → Teardown Mode |
 | Ambiguous | Ask user |
 
@@ -282,9 +298,124 @@ If the setup required non-obvious steps:
 - Suggest updating CLAUDE.md with worktree setup notes
 - Or save to a project-local reference file
 
+## Frontend Worktree Mode
+
+For frontend projects that connect to a backend service. No Docker stack needed — focus on dependencies, backend URL, and codegen.
+
+Load `references/frontend-worktree.md` and `references/project-connections.md`.
+
+### F1: Create Worktree + Install Dependencies
+
+Create worktree (same as Phase 3, Steps 1-3).
+
+Detect and run the correct package manager:
+
+```bash
+# Detect from lock files
+if [ -f bun.lockb ] || [ -f bun.lock ]; then bun install
+elif [ -f pnpm-lock.yaml ]; then pnpm install
+elif [ -f yarn.lock ]; then yarn install
+elif [ -f package-lock.json ]; then npm install
+fi
+```
+
+Check `packageManager` field in `package.json` for Corepack-managed versions.
+
+### F2: Backend Discovery
+
+Load `references/project-connections.md`.
+
+Find which backend this frontend connects to:
+
+```bash
+# Scan env files for API URLs
+grep -rn 'API_URL\|BACKEND_URL\|STRAPI_URL\|SERVER_URL' .env* 2>/dev/null
+```
+
+Detect running backends:
+
+```bash
+# Docker Compose projects (may include worktree backends)
+docker compose ls 2>/dev/null
+
+# Check common backend ports
+ss -tlnp 2>/dev/null | grep -E ':(1337|3000|5000|8000|9000)\s'
+```
+
+**GATE:** Present backend options to user:
+
+```
+Available backends:
+  1. Main backend (default): http://localhost:5000
+  2. Worktree backend (gm-wt1): http://localhost:5100
+  3. Custom URL
+
+Which backend should this frontend connect to?
+Recommended: main backend (unless testing worktree-specific changes)
+```
+
+### F3: Configure Environment
+
+Create `.env.local` (preferred) or update `.env` in the worktree:
+
+```bash
+# Prefer .env.local (gitignored, doesn't dirty working tree)
+echo "API_URL=http://localhost:<chosen-port>" >> .worktrees/<slug>/.env.local
+```
+
+If the dev server port conflicts, assign a new one:
+```bash
+# Check if default port is taken
+PORT=$(grep -E '^PORT=' .env 2>/dev/null | cut -d= -f2)
+ss -tlnp | grep -q ":${PORT:-3000} " && echo "Port conflict — use PORT=$((PORT + 10))"
+```
+
+### F4: Post-Install + Codegen
+
+Check for required post-install steps:
+
+1. **CLAUDE.md / README** — read setup instructions (highest priority)
+2. **package.json scripts** — look for `generate`, `codegen`, `build:types`, `postinstall`, `prepare`
+3. **Auto-detect** — GraphQL codegen configs, OpenAPI specs, TanStack Router (auto-generates)
+
+Run detected codegen commands. If none found, skip.
+
+Quick verification:
+```bash
+# TypeScript type check (if applicable)
+npx tsc --noEmit 2>&1 | head -10
+```
+
+### F5: Report + Save Learnings
+
+```
+Frontend Worktree Ready!
+
+  Location:    .worktrees/<branch-slug>
+  Branch:      <branch-name>
+  Pkg Manager: <pnpm|yarn|npm|bun>
+  Backend:     http://localhost:<port> (<main|worktree-name>)
+  Dev Server:  <start command> (port <port>)
+
+  To start:
+    cd .worktrees/<branch-slug> && <dev-command>
+
+  To tear down:
+    git worktree remove .worktrees/<branch-slug>
+```
+
+**Save learnings:** If the project's CLAUDE.md lacks worktree setup info, suggest adding:
+
+```markdown
+## Worktree Setup
+Package manager: <name> (lock file: <file>)
+Backend: API_URL=http://localhost:5000 in .env.local
+Post-install: <any codegen commands>
+```
+
 ## Teardown Mode
 
-Invoked when user wants to remove a worktree and its Docker environment.
+Invoked when user wants to remove a worktree and its Docker environment (backend) or worktree directory (frontend).
 
 ### Step 1: Identify target
 
@@ -310,7 +441,9 @@ Type 'teardown' to confirm.
 
 Wait for explicit confirmation.
 
-### Step 3: Stop Docker
+### Step 3: Stop Docker (backend worktrees only)
+
+If this worktree has an associated Docker stack:
 
 ```bash
 docker compose -p <project-name> down -v --remove-orphans
@@ -321,6 +454,8 @@ If compose project name is unknown, detect from the worktree:
 cd .worktrees/<slug>
 docker compose ls --format json  # find matching project
 ```
+
+For **frontend worktrees** — skip this step (no Docker to stop).
 
 ### Step 4: Remove worktree
 
@@ -354,14 +489,18 @@ Teardown complete:
 
 | Situation | Action |
 |-----------|--------|
-| No Docker files | STOP — suggest plain worktree |
+| Docker Compose + backend services | Backend mode → Phase 1 |
+| Frontend framework, no Docker | Frontend mode → F1 |
+| Hybrid (Strapi, Medusa) | Backend mode → Phase 1 |
 | container_name hardcoded | Phase 2: Setup Guide |
 | Ports not parameterized | Phase 2: Setup Guide |
-| All checks pass | Skip to Phase 3 |
+| All readiness checks pass | Skip to Phase 3 |
 | Inside a worktree already | Offer teardown |
 | Migration tool unknown | Check CLAUDE.md → README → auto-detect → ask |
 | Health check fails | Show logs, ask user |
 | Port conflict detected | Increment index, recalculate |
+| Unknown package manager | Check `packageManager` in package.json → ask user |
+| Frontend backend URL unknown | Scan .env files → check running services → ask |
 
 ## Common Mistakes
 
@@ -387,6 +526,7 @@ Teardown complete:
 
 ## Checklist
 
+### Backend (Docker) Mode
 - [ ] Docker Compose detected (Phase 0)
 - [ ] Readiness assessment run (Phase 1)
 - [ ] All readiness issues resolved (Phase 2, if needed)
@@ -398,11 +538,23 @@ Teardown complete:
 - [ ] API accessible at worktree port
 - [ ] Teardown instructions provided
 
+### Frontend Mode
+- [ ] Project type classified as frontend (Phase 0)
+- [ ] Worktree created
+- [ ] Package manager detected correctly
+- [ ] Dependencies installed
+- [ ] Backend URL identified and configured
+- [ ] Codegen/post-install steps run (if any)
+- [ ] Dev server port checked for conflicts
+- [ ] Learnings saved to CLAUDE.md (if first time)
+
 ## Self-Improvement Protocol
 
 After each use:
 1. **New Docker Compose pattern not handled?** → Update `references/readiness-checklist.md` with the new check
 2. **Migration tool not recognized?** → Add to `references/migration-patterns.md`
 3. **Port conflict strategy failed?** → Update `references/env-configuration.md` with better allocation
-4. **Project setup had non-obvious steps?** → Suggest updating project's CLAUDE.md
-5. **Structural issue with this skill?** → Invoke `skill-forge` in IMPROVE mode
+4. **New frontend framework or package manager?** → Update `references/frontend-worktree.md`
+5. **New project connection discovered?** → Update `references/project-connections.md` with detection pattern
+6. **Project setup had non-obvious steps?** → Suggest updating project's CLAUDE.md
+7. **Structural issue with this skill?** → Invoke `skill-forge` in IMPROVE mode
