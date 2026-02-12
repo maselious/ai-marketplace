@@ -94,20 +94,29 @@ done
 
 Removes everything: containers, volumes, network, worktree directory, branch.
 
+**Critical:** Always `cd` to main tree root FIRST — before any destructive operations.
+Running `git worktree remove` or `rm -rf` while CWD is inside the target directory
+breaks the shell (Linux cannot resolve `.` for a deleted inode).
+
 ```bash
-# 1. Stop and remove Docker resources
-cd .worktrees/$slug
-docker compose -p $project_name down -v --remove-orphans
+# 0. FIRST — escape to main tree root (prevents broken CWD)
+cd "$(git worktree list | head -1 | awk '{print $1}')"
 
-# 2. Return to main tree
-cd $(git worktree list | head -1 | awk '{print $1}')
+# 1. Stop and remove Docker resources (from OUTSIDE, using -f)
+docker compose -p $project_name -f .worktrees/$slug/docker-compose.yml down -v --remove-orphans
 
-# 3. Remove worktree
-git worktree remove .worktrees/$slug
+# 2. Remove worktree
+git worktree remove .worktrees/$slug --force
+
+# 3. Prune stale worktree refs
+git worktree prune
 
 # 4. Optionally delete branch
 git branch -D $branch  # Only if not merged
 ```
+
+> **Why `-f` flag?** Docker Compose can target any compose file via `-f` without requiring
+> `cd` into its directory. This avoids the CWD-inside-deleted-directory problem entirely.
 
 ### Partial Teardown Options
 

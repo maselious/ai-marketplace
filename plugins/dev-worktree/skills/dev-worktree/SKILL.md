@@ -495,30 +495,38 @@ Type 'teardown' to confirm.
 
 Wait for explicit confirmation.
 
-### Step 3: Stop Docker (backend worktrees only)
+### Step 3: Escape to main tree root
 
-If this worktree has an associated Docker stack:
+**Critical — do this BEFORE any destructive operations.** If CWD is inside the worktree
+being deleted, the shell breaks (Linux cannot resolve `.` for a deleted inode).
 
 ```bash
-docker compose -p <project-name> down -v --remove-orphans
+cd "$(git worktree list | head -1 | awk '{print $1}')"
 ```
 
-If compose project name is unknown, detect from the worktree:
+### Step 4: Stop Docker (backend worktrees only)
+
+If this worktree has an associated Docker stack, stop it **from outside** using `-f`:
+
 ```bash
-cd .worktrees/<slug>
-docker compose ls --format json  # find matching project
+docker compose -p <project-name> -f .worktrees/<slug>/docker-compose.yml down -v --remove-orphans
+```
+
+If compose project name is unknown, detect it without cd-ing into worktree:
+```bash
+docker compose ls --format json  # find matching project by name
 ```
 
 For **frontend worktrees** — skip this step (no Docker to stop).
 
-### Step 4: Remove worktree
+### Step 5: Remove worktree
 
 ```bash
-cd <main-repo-root>
-git worktree remove .worktrees/<slug>
+git worktree remove .worktrees/<slug> --force
+git worktree prune
 ```
 
-### Step 5: Update backlog (if linked)
+### Step 6: Update backlog (if linked)
 
 Search the backlog for a task linked to this worktree:
 
@@ -537,7 +545,7 @@ What should happen to the backlog entry?
 
 Update the line accordingly and remove the `(🔄 ...)` suffix if marking as completed or pending.
 
-### Step 6: Clean up branch (optional)
+### Step 7: Clean up branch (optional)
 
 Ask user:
 ```
@@ -548,7 +556,7 @@ Branch <name> still exists. What to do?
 
 If delete: `git branch -D <branch-name>`
 
-### Step 7: Report
+### Step 8: Report
 
 ```
 Teardown complete:
