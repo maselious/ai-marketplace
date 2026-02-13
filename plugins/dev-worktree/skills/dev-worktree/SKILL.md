@@ -192,7 +192,11 @@ Index = count + 1. Offset = index * 100.
 In the worktree directory:
 1. Copy `.env` (or `.env.example`) → worktree `.env` with offset ports
 2. Recalculate `DATABASE_URL` and similar compound variables
-3. Generate `docker-compose.worktree.yml` override if needed (for container_name or other overrides)
+3. Apply YAGNI minimization (see `references/env-configuration.md` → "Feature Minimization" section):
+   - Disable all feature toggles (`ENABLE_*`, `FEATURE_*`, `USE_*`, `*_ENABLED` → `false`)
+   - Comment out external service secrets with `# [YAGNI]` prefix
+   - Add YAGNI header comment to `.env`
+4. Generate `docker-compose.worktree.yml` override if needed (for container_name or other overrides)
 
 ### Step 6: Install dependencies
 
@@ -445,6 +449,8 @@ If the dev server port conflicts, assign a new one:
 PORT=$(grep -E '^PORT=' .env 2>/dev/null | cut -d= -f2)
 ss -tlnp | grep -q ":${PORT:-3000} " && echo "Port conflict — use PORT=$((PORT + 10))"
 ```
+
+**YAGNI minimization:** If the frontend `.env` contains feature toggles or external service keys, apply the same YAGNI rules as backend (see `references/env-configuration.md` → "Feature Minimization").
 
 ### F4: Post-Install + Codegen
 
