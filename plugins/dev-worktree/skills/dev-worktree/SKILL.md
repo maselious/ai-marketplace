@@ -288,6 +288,32 @@ Hit the health endpoint (if the project has one):
 curl -s http://localhost:<api-port>/health || curl -s http://localhost:<api-port>/api/health
 ```
 
+## Session State
+
+After the worktree is created and verified, write a state file so the SessionStart hook can detect the active worktree on session restore.
+
+### Write state file
+
+Create `.claude/dev-worktree.local.md` in the **original project root** (not the worktree):
+
+```bash
+PROJECT_ROOT="$(git worktree list | head -1 | awk '{print $1}')"
+mkdir -p "$PROJECT_ROOT/.claude"
+cat > "$PROJECT_ROOT/.claude/dev-worktree.local.md" << EOF
+---
+active_worktree: $(pwd)
+branch: <branch-name>
+compose_project: <compose-project-name-or-empty>
+created: $(date +%Y-%m-%d)
+---
+Active worktree session. Managed by dev-worktree plugin.
+EOF
+```
+
+**Frontend mode:** Same step, but `compose_project` is empty.
+
+**Why:** On session restore, the SessionStart hook reads this file and reminds the agent to cd back into the worktree.
+
 ## Backlog Update
 
 **Trigger:** A backlog task was matched during Phase 0 backlog detection.
@@ -458,6 +484,8 @@ Frontend Worktree Ready!
     git worktree remove .worktrees/<branch-slug>
 ```
 
+**Session state:** Write the state file (see "Session State" section above). Use the same format, with empty `compose_project`.
+
 **Save learnings:** If the project's CLAUDE.md lacks worktree setup info, suggest adding:
 
 ```markdown
@@ -524,6 +552,17 @@ For **frontend worktrees** — skip this step (no Docker to stop).
 ```bash
 git worktree remove .worktrees/<slug> --force
 git worktree prune
+```
+
+### Step 5.5: Clear session state
+
+Remove the state file if it points to the worktree being torn down:
+
+```bash
+STATE_FILE="$(git worktree list | head -1 | awk '{print $1}')/.claude/dev-worktree.local.md"
+if [ -f "$STATE_FILE" ] && grep -q ".worktrees/<slug>" "$STATE_FILE"; then
+  rm "$STATE_FILE"
+fi
 ```
 
 ### Step 6: Update backlog (if linked)
