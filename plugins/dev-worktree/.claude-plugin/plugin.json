@@ -1,6 +1,6 @@
 {
   "name": "dev-worktree",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Git worktree lifecycle for Docker backends and frontend projects: readiness assessment, environment isolation, port allocation, backend URL discovery, backlog integration, and teardown",
   "author": {
     "name": "Marisko"
