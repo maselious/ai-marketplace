@@ -1,7 +1,7 @@
 ---
 name: worktree
 description: Create, manage, or tear down isolated git worktrees (Docker backends and frontend projects)
-argument-hint: "[setup|teardown|list] [branch-name] [--task \"task description\"]"
+argument-hint: "[setup|teardown|list|cleanup] [branch-name] [--shared] [--task \"task description\"]"
 allowed-tools:
   - Bash
   - Read
@@ -15,7 +15,7 @@ allowed-tools:
 
 # /worktree Command
 
-Entry point for git worktree lifecycle management — Docker backends and frontend projects. Supports backlog integration for task tracking.
+Entry point for git worktree lifecycle management — Docker backends and frontend projects. Supports shared Docker mode, smart teardown, warm standby, and backlog integration.
 
 ## Argument Parsing
 
@@ -24,11 +24,20 @@ Parse the command arguments:
 | Pattern | Intent | Action |
 |---------|--------|--------|
 | No arguments | Ambiguous | Ask: setup or teardown? |
-| `setup <branch>` or `create <branch>` | Create new worktree | Load dev-worktree skill → Phase 0 (auto-detects project type) |
-| `setup <branch> --task "<text>"` | Create worktree for backlog task | Load dev-worktree skill → Phase 0 with backlog matching |
-| `teardown [slug]` or `cleanup [slug]` or `remove [slug]` | Remove worktree | Load dev-worktree skill → Teardown mode |
+| `setup <branch>` or `create <branch>` | Create new worktree | Load dev-worktree skill → Phase 0 |
+| `setup <branch> --shared` | Create worktree reusing existing Docker | Load skill → Phase 0, force shared mode at Phase 1.5 |
+| `setup <branch> --task "<text>"` | Create worktree for backlog task | Load skill → Phase 0 with backlog matching |
+| `teardown [slug]` or `remove [slug]` | Remove worktree | Load skill → Teardown mode (smart options) |
+| `cleanup` or `prune` | Clean up warm stacks + orphan resources | Load skill → Cleanup Command |
 | `list` or `ls` or `status` | List worktrees | Show all worktrees with status |
-| `<branch-name>` (no keyword) | Create new worktree | Load dev-worktree skill → Phase 0 |
+| `<branch-name>` (no keyword) | Create new worktree | Load skill → Phase 0 |
+
+### Flags
+
+| Flag | Effect |
+|------|--------|
+| `--shared` | Reuse existing Docker stack (skip stack detection prompt) |
+| `--task "<text>"` | Link worktree to a backlog entry |
 
 ### Task linking
 
@@ -44,7 +53,11 @@ If `--task` is not specified but a backlog exists, the skill may ask if the work
 
 ### For setup/teardown
 
-Load and follow the `dev-worktree` skill. Pass the parsed intent, branch name, and task reference (if any). The skill auto-detects whether this is a Docker backend or frontend project.
+Load and follow the `dev-worktree` skill. Pass the parsed intent, branch name, flags, and task reference (if any). The skill auto-detects whether this is a Docker backend or frontend project.
+
+### For cleanup
+
+Load the `dev-worktree` skill → Cleanup Command section. Lists warm standby stacks and orphan Docker resources, offers removal.
 
 ### For list
 
@@ -56,6 +69,8 @@ git worktree list
 
 # Check Docker Compose projects (for backend worktrees)
 docker compose ls --format "table {{.Name}}\t{{.Status}}\t{{.ConfigFiles}}" 2>/dev/null
+
+# Check for warm standby stacks (running but no active worktree)
 ```
 
 Present as:
@@ -64,17 +79,23 @@ Present as:
 Git Worktrees:
   main         /path/to/repo              (main working tree)
   feat-auth    .worktrees/feat-auth       Docker: running (<project>-wt1) — API :5100, DB :5532
-  fix-bug      .worktrees/fix-bug         Frontend — backend: localhost:5000
+  fix-bug      .worktrees/fix-bug         Shared: <project>-wt1 — DB: myapp_wt2
+  fix-style    .worktrees/fix-style       Frontend — backend: localhost:5000
+
+Warm Standby:
+  <project>-wt2   — running, no active worktree (3 days idle)
 ```
 
 ## Examples
 
 ```
-/worktree setup feat/auth-refactor                          → Create worktree (auto-detect type)
+/worktree setup feat/auth-refactor                          → Create worktree (auto-detect type + mode)
 /worktree feat/payment-fix                                  → Same (setup is default)
+/worktree setup feat/auth --shared                          → Reuse existing Docker stack
 /worktree setup feat/auth --task "Add user authentication"  → Create worktree + link backlog task
-/worktree feat/payments --task "payment gateway"            → Short form with task
-/worktree teardown feat-auth-refactor                       → Stop Docker + remove worktree + update backlog
-/worktree list                                              → Show all worktrees with status
+/worktree feat/payments --shared --task "payment gateway"   → Shared mode + task linking
+/worktree teardown feat-auth-refactor                       → Smart teardown (full / warm standby / stop)
+/worktree cleanup                                           → List and remove warm stacks + orphans
+/worktree list                                              → Show all worktrees + warm stacks
 /worktree                                                   → Ask what to do
 ```

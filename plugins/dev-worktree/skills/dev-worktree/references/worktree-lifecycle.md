@@ -118,13 +118,90 @@ git branch -D $branch  # Only if not merged
 > **Why `-f` flag?** Docker Compose can target any compose file via `-f` without requiring
 > `cd` into its directory. This avoids the CWD-inside-deleted-directory problem entirely.
 
-### Partial Teardown Options
+### Smart Teardown Options
 
-| Option | Command | Use when |
-|--------|---------|----------|
-| Stop containers only | `docker compose -p $name stop` | Pausing work, want to resume later |
-| Remove containers, keep volumes | `docker compose -p $name down` | Rebuild containers, keep data |
-| Full removal | `docker compose -p $name down -v` | Done with this worktree |
+| Option | Action | Use when |
+|--------|--------|----------|
+| **Full removal** | `docker compose -p $name down -v` + remove worktree | Done, no reuse planned |
+| **Warm standby** | Remove worktree, keep Docker running | Planning another feature soon |
+| **Stop only** | `docker compose -p $name stop` | Pausing work, want to resume later |
+| **Shared mode cleanup** | Drop database, remove worktree, keep stack | Worktree was in shared Docker mode |
+
+### Warm Standby
+
+Keep the Docker stack running after worktree removal. Next worktree creation is instant — just create worktree, generate `.env`, run migrations.
+
+```bash
+# Remove worktree but keep Docker
+cd "$(git worktree list | head -1 | awk '{print $1}')"
+git worktree remove .worktrees/$slug --force
+git worktree prune
+# Docker stack stays running
+echo "Stack $project_name kept in warm standby"
+```
+
+**Present the choice to user during teardown:**
+
+```
+Teardown options for .worktrees/<slug>:
+
+  1. Full teardown — remove everything (Docker + data + worktree)
+  2. Warm standby — remove worktree, keep Docker running for future use
+  3. Stop only — pause Docker, keep worktree (resume later)
+
+  Recommended: Warm standby (if you plan to create another worktree soon)
+```
+
+### Shared Mode Teardown
+
+When the worktree used shared Docker mode (check state file for `shared_docker: true`):
+
+```bash
+# 1. Drop the worktree's database (not the whole stack!)
+docker compose -p $shared_stack exec db dropdb -U postgres $shared_db_name
+
+# 2. Remove worktree
+cd "$(git worktree list | head -1 | awk '{print $1}')"
+git worktree remove .worktrees/$slug --force
+git worktree prune
+
+# 3. Do NOT touch Docker — other consumers may exist
+```
+
+### Warm Stack Management
+
+Detect warm (orphaned) stacks — running Docker stacks with no active worktree:
+
+```bash
+# All compose projects
+running=$(docker compose ls --format json | jq -r '.[].Name')
+
+# All worktree directories
+worktrees=$(git worktree list | tail -n +2 | awk '{print $1}')
+
+# Match: stack is warm if no worktree references it and it's not the main tree stack
+```
+
+**Offer reuse** when creating a new worktree:
+
+```
+Warm Docker stack detected: <project>-wt1
+
+  Services: api, db, redis (all healthy)
+  Last used: 3 days ago
+  Data: database with existing migrations
+
+  Reuse this stack? (shared mode)
+```
+
+**Cleanup command:** When user runs `/worktree cleanup`:
+
+```bash
+# List all warm stacks
+# For each: show last activity, disk usage
+# Ask: keep or remove?
+docker compose -p $stack down -v --remove-orphans
+```
 
 ### Orphan Detection
 

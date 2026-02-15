@@ -168,6 +168,31 @@ For each worktree, generate:
 
 Both files are untracked (in `.gitignore`) and removed during teardown.
 
+## Shared Docker Mode (No Port Offsets)
+
+When reusing an existing Docker stack (see `shared-docker.md`), skip the entire port offset logic. The environment file differs from isolated mode:
+
+1. **Copy `.env`** from the source that powers the running stack (main tree or donor worktree)
+2. **Keep all ports unchanged** — they already point to the running stack
+3. **Change only database-related variables:**
+   ```
+   DATABASE_NAME=myapp_wt<index>
+   DATABASE_URL=postgresql://postgres:postgres@localhost:<existing-port>/myapp_wt<index>
+   DATABASE_URL_DOCKER=postgresql://postgres:postgres@db:5432/myapp_wt<index>
+   ```
+4. **Do NOT apply port offsets** — the worktree uses the existing stack's ports
+5. **Apply YAGNI minimization** as usual (see below)
+
+### Compose Project Name in Shared Mode
+
+Do NOT set a separate compose project name. The worktree shares the existing project. Record which stack it uses in the state file:
+
+```yaml
+compose_project: <existing-stack-name>
+shared_docker: true
+shared_db_name: myapp_wt2
+```
+
 ## Feature Minimization (YAGNI Mode)
 
 After copying `.env` and applying port offsets, minimize the worktree environment by disabling features and commenting out external service credentials.

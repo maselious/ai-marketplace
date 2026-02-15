@@ -1,6 +1,6 @@
 ---
 name: dev-worktree
-description: Use when creating isolated git worktrees for Docker-based or frontend projects, setting up parallel development environments, tearing down worktree stacks, or linking worktree creation to backlog tasks. Triggers on 'dev worktree', 'create worktree', 'parallel environment', 'isolated workspace', 'teardown worktree', 'docker worktree', 'worktree cleanup', 'frontend worktree', 'worktree for task', 'backlog worktree', 'link task to worktree'.
+description: Use when creating isolated git worktrees for Docker-based or frontend projects, setting up parallel development environments, tearing down worktree stacks, reusing existing Docker stacks across worktrees, or linking worktree creation to backlog tasks. Triggers on 'dev worktree', 'create worktree', 'parallel environment', 'isolated workspace', 'teardown worktree', 'docker worktree', 'worktree cleanup', 'frontend worktree', 'worktree for task', 'backlog worktree', 'link task to worktree', 'shared docker', 'reuse docker', 'warm standby'.
 ---
 
 # Docker-Aware Git Worktree Lifecycle
@@ -9,10 +9,11 @@ description: Use when creating isolated git worktrees for Docker-based or fronte
 
 Manage the full lifecycle of git worktrees for both Docker-based backends and frontend projects: assess readiness, configure isolated environments, deploy stacks, connect frontends to correct backends, and tear down cleanly.
 
-**Core principle:** Each worktree gets its own isolated environment — Docker backends get unique ports/containers/volumes, frontends get correct backend URLs and dependency installs.
+**Core principle:** Each worktree gets its own isolated environment — Docker backends get unique ports/containers/volumes, frontends get correct backend URLs and dependency installs. When full isolation isn't needed, shared Docker mode lets worktrees reuse an existing stack for faster setup.
 
-**Two modes:**
-- **Backend (Docker):** Full Docker Compose isolation with port offsets
+**Three modes:**
+- **Backend (Isolated):** Full Docker Compose isolation with port offsets (default)
+- **Backend (Shared):** Reuse existing Docker stack, create only a new database
 - **Frontend:** Package install + backend URL configuration + codegen
 
 **Announce at start:** "I'm using the dev-worktree skill to [set up / tear down] an isolated [Docker / frontend] workspace."
@@ -24,25 +25,24 @@ Phase 0: Guard + Classify + Backlog Detect
          │
          ├─ Backend (Docker) ──► Phase 1: Readiness
          │                       │
-         │                       ├─ Ready ──► Phase 3: Worktree + Env
-         │                       │            GATE: port mappings
+         │                       ├─ Ready ──► Phase 1.5: Stack Detection
          │                       │            │
-         │                       │            Phase 4: Deploy Docker
-         │                       │            Backlog Update (if detected)
-         │                       │            Phase 5: Report
+         │                       │            ├─ Shared ──► Phase 3S: Worktree + Shared Env
+         │                       │            │             Create DB in existing stack
+         │                       │            │             Run migrations
+         │                       │            │             Backlog Update → Report
+         │                       │            │
+         │                       │            └─ Isolated ──► Phase 3: Worktree + Env
+         │                       │                            GATE: port mappings
+         │                       │                            Phase 4: Deploy Docker
+         │                       │                            Backlog Update → Report
          │                       │
          │                       └─ Not Ready ──► Phase 2: Setup Guide
          │                                        GATE → re-assess
          │
          ├─ Frontend ──► Frontend Mode (F1–F5)
-         │               F1: Worktree + Install
-         │               F2: Backend Discovery
-         │               F3: Configure .env
-         │               F4: Codegen + Verify
-         │               Backlog Update (if detected)
-         │               F5: Report + Save Learnings
          │
-         ├─ Already in worktree? → Teardown mode
+         ├─ Already in worktree? → Teardown mode (smart options)
          │
          └─ Not a project? → STOP
 ```
@@ -121,7 +121,7 @@ Run ALL checks from the checklist. Classify results:
 
 | Result | Action |
 |--------|--------|
-| All checks PASS | → Phase 3 |
+| All checks PASS | → Phase 1.5 (Stack Detection) |
 | Some checks FAIL | → Phase 2 |
 | Critical failures only | → Phase 2, highlight blockers |
 
@@ -146,8 +146,109 @@ Present the **specific changes needed** for THIS project based on Phase 1 findin
 
 **GATE:** User must apply changes (or approve you to apply them). After changes:
 - Re-run readiness checks
-- If all pass → Phase 3
+- If all pass → Phase 1.5
 - If still failing → show remaining issues
+
+## Phase 1.5: Stack Detection
+
+Detect existing Docker stacks before deciding isolation level. Load `references/shared-docker.md`.
+
+```bash
+# Find running compose projects for this repo
+project_base="$(basename $(git rev-parse --show-toplevel))"
+docker compose ls --format json 2>/dev/null
+```
+
+| Detection result | User flag | Action |
+|-----------------|-----------|--------|
+| No running stacks | Any | → Phase 3 (isolated, no choice) |
+| Stack found | `--shared` | → Phase 3S (shared mode) |
+| Stack found | No flag | Present options, ask user |
+| Warm standby stack (orphaned) | Any | Offer reuse: shared or isolated |
+
+**GATE:** If stack found and no explicit flag, present:
+
+```
+Existing Docker stack detected: <stack-name>
+
+  Services: api, db, redis (all healthy)
+  Ports:    API :5000, DB :5432, Redis :6379
+  Origin:   main tree / worktree / warm standby
+
+  Options:
+    1. Shared mode — reuse this stack, create new database only (fast)
+    2. Isolated mode — new Docker stack with port offsets (full isolation)
+
+  Recommended: Shared (if features don't conflict at service level)
+```
+
+If user chooses shared → Phase 3S. If isolated → Phase 3.
+
+## Phase 3S: Shared Docker Worktree
+
+Load `references/shared-docker.md` and `references/env-configuration.md`.
+
+### Step 1: Create worktree (standard)
+
+Same as Phase 3 Steps 1-3: determine directory, branch name, `git worktree add`.
+
+### Step 2: Create database in existing stack
+
+```bash
+db_name="${project_base}_wt${index}"
+docker compose -p <stack-name> exec db createdb -U postgres "$db_name"
+```
+
+### Step 3: Generate environment file
+
+Copy `.env` from the stack's source. Change only database name — no port offsets.
+
+Follow `references/env-configuration.md` → "Shared Docker Mode" section.
+
+### Step 4: Run migrations
+
+Run against the new database via the existing stack:
+
+```bash
+docker compose -p <stack-name> exec -e DATABASE_NAME="$db_name" api <migrate-command>
+```
+
+Follow `references/migration-patterns.md` for tool detection.
+
+### Step 5: Write session state
+
+Record shared mode in `.claude/dev-worktree.local.md`:
+
+```yaml
+---
+active_worktree: <path>
+branch: <branch>
+compose_project: <stack-name>
+shared_docker: true
+shared_db_name: <db_name>
+created: <date>
+---
+```
+
+### Step 6: Report
+
+```
+Shared Docker Worktree Ready!
+
+  Location:    .worktrees/<slug>
+  Branch:      <branch>
+  Stack:       <stack-name> (shared)
+  Database:    <db_name> (new DB in existing Postgres)
+
+  Ports (same as existing stack):
+    API:       http://localhost:<port>
+    Database:  localhost:<port>
+
+  To work: cd .worktrees/<slug>
+  Teardown: skill will drop DB only, Docker stays running
+```
+
+Proceed to Backlog Update (if task linked) and Phase 5 report.
 
 ## Phase 3: Create Worktree + Configure Environment
 
@@ -503,7 +604,7 @@ Post-install: <any codegen commands>
 
 ## Teardown Mode
 
-Invoked when user wants to remove a worktree and its Docker environment (backend) or worktree directory (frontend).
+Invoked when user wants to remove a worktree. Load `references/worktree-lifecycle.md` for detailed procedures.
 
 ### Step 1: Identify target
 
@@ -514,56 +615,93 @@ git worktree list
 
 Ask user which one to tear down.
 
-### Step 2: Confirm
+### Step 2: Detect worktree type
 
-```
-This will permanently remove:
-  - Docker containers + volumes (compose project: <name>)
-  - Worktree at .worktrees/<slug>
-  - Branch <branch-name> (if not merged)
+Read the session state file to determine mode:
 
-  Data in the database WILL BE LOST.
-
-Type 'teardown' to confirm.
+```bash
+STATE_FILE="$(git worktree list | head -1 | awk '{print $1}')/.claude/dev-worktree.local.md"
 ```
 
-Wait for explicit confirmation.
+| State file says | Worktree type |
+|----------------|---------------|
+| `shared_docker: true` | Shared Docker mode |
+| `compose_project:` (non-empty, no shared flag) | Isolated Docker mode |
+| `compose_project:` empty | Frontend mode |
+| No state file | Detect from context |
 
-### Step 3: Escape to main tree root
+### Step 3: Choose teardown strategy
+
+**GATE:** Present smart teardown options based on worktree type.
+
+**For isolated Docker worktrees:**
+
+```
+Teardown options for .worktrees/<slug>:
+
+  1. Full teardown — remove Docker + data + worktree (permanent)
+  2. Warm standby — remove worktree, keep Docker for future reuse
+  3. Stop only — pause Docker, keep worktree (resume later)
+
+  Recommended: Warm standby (if planning more worktrees soon)
+```
+
+**For shared Docker worktrees:**
+
+```
+This worktree uses shared Docker (stack: <name>).
+Will drop database "<db_name>" and remove worktree.
+Docker stack stays running.
+
+Proceed?
+```
+
+**For frontend worktrees:**
+
+```
+Remove worktree .worktrees/<slug>?
+This will delete the directory and all local changes.
+```
+
+### Step 4: Escape to main tree root
 
 **Critical — do this BEFORE any destructive operations.** If CWD is inside the worktree
-being deleted, the shell breaks (Linux cannot resolve `.` for a deleted inode).
+being deleted, the shell breaks.
 
 ```bash
 cd "$(git worktree list | head -1 | awk '{print $1}')"
 ```
 
-### Step 4: Stop Docker (backend worktrees only)
+### Step 5: Execute teardown
 
-If this worktree has an associated Docker stack, stop it **from outside** using `-f`:
-
+**Full teardown (isolated):**
 ```bash
 docker compose -p <project-name> -f .worktrees/<slug>/docker-compose.yml down -v --remove-orphans
 ```
 
-If compose project name is unknown, detect it without cd-ing into worktree:
+**Warm standby (isolated):**
 ```bash
-docker compose ls --format json  # find matching project by name
+# Docker stays running — only remove worktree
+echo "Stack <project-name> kept in warm standby"
 ```
 
-For **frontend worktrees** — skip this step (no Docker to stop).
+**Shared mode:**
+```bash
+# Drop database only
+docker compose -p <stack-name> exec db dropdb -U postgres <db_name>
+# Docker stays running
+```
 
-### Step 5: Remove worktree
+**Frontend:** No Docker operations needed.
+
+### Step 6: Remove worktree + clean state
 
 ```bash
 git worktree remove .worktrees/<slug> --force
 git worktree prune
 ```
 
-### Step 5.5: Clear session state
-
-Remove the state file if it points to the worktree being torn down:
-
+Clear session state:
 ```bash
 STATE_FILE="$(git worktree list | head -1 | awk '{print $1}')/.claude/dev-worktree.local.md"
 if [ -f "$STATE_FILE" ] && grep -q ".worktrees/<slug>" "$STATE_FILE"; then
@@ -571,7 +709,7 @@ if [ -f "$STATE_FILE" ] && grep -q ".worktrees/<slug>" "$STATE_FILE"; then
 fi
 ```
 
-### Step 6: Update backlog (if linked)
+### Step 7: Update backlog (if linked)
 
 Search the backlog for a task linked to this worktree:
 
@@ -579,37 +717,40 @@ Search the backlog for a task linked to this worktree:
 grep -ni "🔄.*worktree: .worktrees/<slug>" BACKLOG.md backlog.md TODO.md todo.md TASKS.md tasks.md CLAUDE.md 2>/dev/null
 ```
 
-If found, ask user:
-```
-Task "Implement payment gateway" is linked to this worktree.
-What should happen to the backlog entry?
-  1. Mark as completed [x]
-  2. Revert to pending [ ]
-  3. Leave as-is [-]
-```
+If found, ask user: mark completed `[x]`, revert to pending `[ ]`, or leave as-is `[-]`.
 
-Update the line accordingly and remove the `(🔄 ...)` suffix if marking as completed or pending.
+### Step 8: Clean up branch (optional)
 
-### Step 7: Clean up branch (optional)
+Ask user: delete branch or keep it?
 
-Ask user:
-```
-Branch <name> still exists. What to do?
-1. Delete it (not merged)
-2. Keep it
-```
-
-If delete: `git branch -D <branch-name>`
-
-### Step 8: Report
+### Step 9: Report
 
 ```
 Teardown complete:
-  ✅ Docker containers stopped and removed
-  ✅ Docker volumes removed
+  ✅ [Docker stopped and removed / Docker in warm standby / DB dropped]
   ✅ Worktree removed
-  ✅ Branch deleted (or kept)
+  ✅ Branch [deleted / kept]
+  ✅ [Backlog updated / No backlog link]
 ```
+
+## Cleanup Command
+
+When user runs `/worktree cleanup` or asks to clean up Docker resources:
+
+1. **List warm standby stacks** — running Docker stacks with no active worktree
+2. **List orphan resources** — volumes, networks from removed stacks
+3. **Present choices:**
+
+```
+Warm standby stacks:
+  myapp-wt1   — running 3 days, 512MB    [keep / remove]
+  myapp-wt2   — running 1 day, 480MB     [keep / remove]
+
+Orphan volumes: 2 (1.2GB total)          [clean / keep]
+```
+
+4. Remove selected stacks: `docker compose -p <name> down -v --remove-orphans`
+5. Prune orphan volumes: `docker volume prune --filter "label=com.docker.compose.project=<name>"`
 
 ## Quick Reference
 
@@ -620,8 +761,11 @@ Teardown complete:
 | Hybrid (Strapi, Medusa) | Backend mode → Phase 1 |
 | container_name hardcoded | Phase 2: Setup Guide |
 | Ports not parameterized | Phase 2: Setup Guide |
-| All readiness checks pass | Skip to Phase 3 |
-| Inside a worktree already | Offer teardown |
+| All readiness checks pass | Phase 1.5 → Stack Detection |
+| Existing Docker stack running | Offer shared mode (Phase 3S) or isolated (Phase 3) |
+| Warm standby stack found | Offer reuse for new worktree |
+| `--shared` flag | Skip to Phase 3S |
+| Inside a worktree already | Offer teardown (smart options) |
 | Migration tool unknown | Check CLAUDE.md → README → auto-detect → ask |
 | Health check fails | Show logs, ask user |
 | Port conflict detected | Increment index, recalculate |
@@ -631,6 +775,9 @@ Teardown complete:
 | Backlog not found | Skip silently |
 | Task not found in backlog | Ask: add it or skip? |
 | Tearing down linked task | Ask: mark completed, revert to pending, or leave as-is |
+| Teardown isolated worktree | Offer: full removal, warm standby, or stop only |
+| Teardown shared worktree | Drop database, keep Docker running |
+| `/worktree cleanup` | List warm stacks + orphans, offer removal |
 
 ## Common Mistakes
 
@@ -656,10 +803,11 @@ Teardown complete:
 
 ## Checklist
 
-### Backend (Docker) Mode
+### Backend (Isolated) Mode
 - [ ] Docker Compose detected (Phase 0)
 - [ ] Readiness assessment run (Phase 1)
 - [ ] All readiness issues resolved (Phase 2, if needed)
+- [ ] Stack detection run (Phase 1.5)
 - [ ] Worktree directory in .gitignore
 - [ ] Port offsets calculated and unique
 - [ ] .env generated with correct ports
@@ -668,6 +816,19 @@ Teardown complete:
 - [ ] API accessible at worktree port
 - [ ] Backlog updated (if task linked)
 - [ ] Teardown instructions provided
+
+### Backend (Shared) Mode
+- [ ] Docker Compose detected (Phase 0)
+- [ ] Readiness assessment run (Phase 1)
+- [ ] Existing stack detected (Phase 1.5)
+- [ ] User confirmed shared mode
+- [ ] Worktree created
+- [ ] New database created in existing stack
+- [ ] .env generated (no port offsets, new DB name only)
+- [ ] Migrations applied to new database
+- [ ] State file records shared mode
+- [ ] Backlog updated (if task linked)
+- [ ] Teardown instructions provided (drop DB only)
 
 ### Frontend Mode
 - [ ] Project type classified as frontend (Phase 0)
@@ -690,4 +851,6 @@ After each use:
 5. **New project connection discovered?** → Update `references/project-connections.md` with detection pattern
 6. **Project setup had non-obvious steps?** → Suggest updating project's CLAUDE.md
 7. **New backlog format not recognized?** → Update `references/backlog-integration.md` with the new format
-8. **Structural issue with this skill?** → Invoke `skill-forge` in IMPROVE mode
+8. **Shared mode caused service conflicts?** → Update `references/shared-docker.md` with the conflict pattern
+9. **Warm standby stack left running too long?** → Add auto-cleanup timer to `references/worktree-lifecycle.md`
+10. **Structural issue with this skill?** → Invoke `skill-forge` in IMPROVE mode
