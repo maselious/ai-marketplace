@@ -1,0 +1,10 @@
+{
+  "name": "pm-core",
+  "version": "0.1.0",
+  "description": "Project management meta-tool: analyzes projects and generates customized dev-skills, agents, commands, and quality gates",
+  "author": {
+    "name": "Marisko"
+  },
+  "homepage": "https://github.com/maselious/ai-marketplace",
+  "keywords": ["pm", "project-management", "wizard", "meta-tool", "conductor", "parallel"]
+}

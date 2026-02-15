@@ -24,6 +24,15 @@
       "author": {
         "name": "Marisko"
       }
+    },
+    {
+      "name": "pm-core",
+      "source": "./plugins/pm-core",
+      "description": "Project management meta-tool: analyzes projects and generates customized dev-skills, agents, commands, and quality gates",
+      "version": "0.1.0",
+      "author": {
+        "name": "Marisko"
+      }
     }
   ]
 }
