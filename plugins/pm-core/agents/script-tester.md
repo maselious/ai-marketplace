@@ -2,7 +2,7 @@
 name: script-tester
 description: "Use this agent to verify generated shell scripts work correctly. Tests syntax, line endings, permissions, and runs integration smoke tests. Iterates on failures.\n\n<example>\nContext: Wizard generated scripts in Gate 3, now Gate 3.5 needs verification\nuser: (dispatched by wizard)\nassistant: \"Testing all scripts in .claude/scripts/\"\n<commentary>\nGate 3.5 dispatches this agent after script generation.\n</commentary>\n</example>\n\n<example>\nContext: A script failed smoke test and needs fixing\nuser: \"pm-sync.sh failed: gh auth error\"\nassistant: \"Analyzing error, fixing script, retesting.\"\n<commentary>\nAgent iterates: diagnose → fix → retest.\n</commentary>\n</example>\n\n<example>\nContext: User wants to re-verify scripts after manual edits\nuser: \"Test my pm scripts\"\nassistant: \"Running script verification suite.\"\n<commentary>\nCan be invoked standalone for re-verification.\n</commentary>\n</example>"
 model: sonnet
-color: orange
+color: yellow
 tools:
   - Bash
   - Read

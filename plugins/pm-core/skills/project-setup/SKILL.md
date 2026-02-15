@@ -110,7 +110,7 @@ Mark `gates.2.completed: true`, advance `current_gate: 3`
 
 ### Gate 3: Task Tracking & Integrations
 
-Load `references/backlog-strategies.md`.
+Load `references/backlog-strategies.md` and `references/standard-patterns.md`.
 
 **Step 3.1 — Backlog location.** Present:
 - A: BACKLOG.md only (no setup needed)
