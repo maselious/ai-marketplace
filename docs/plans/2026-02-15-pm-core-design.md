@@ -41,22 +41,25 @@ plugins/pm-core/
 ├── .claude-plugin/plugin.json
 ├── skills/
 │   └── project-setup/
-│       ├── SKILL.md                        # Wizard controller — 6 gates
+│       ├── SKILL.md                        # Wizard controller — 7 gates
 │       └── references/
 │           ├── architecture-audit.md        # How to analyze project fitness
 │           ├── conductor-pattern.md         # Parallel conductor flow template
 │           ├── contract-convention.md       # Naming convention template
 │           ├── backlog-strategies.md        # Backlog discovery + capabilities
+│           ├── script-testing.md            # Script verification patterns + smoke tests
 │           ├── backend-nestjs-template.md   # Template for NestJS + Clean Arch
 │           ├── backend-generic-template.md  # Template for generic backend
 │           ├── frontend-template.md         # Template for frontend (FSD/SPA)
 │           ├── pm-commands-template.md      # Templates for /pm:* command generation
+│           ├── standard-patterns.md         # Preflight, error format, output format
 │           └── quality-patterns.md          # Library of proven quality checks
 ├── commands/
 │   ├── setup.md                            # /pm:setup — launch wizard
 │   └── upgrade.md                          # /pm:upgrade — improve existing skills
 ├── agents/
 │   ├── architecture-auditor.md             # Deep project analysis
+│   ├── script-tester.md                    # Script verification + smoke tests
 │   └── skill-generator.md                  # Generate project-specific files
 ```
 
@@ -66,6 +69,7 @@ Example output for a NestJS backend with parallel + GitHub:
 
 ```
 target-project/.claude/
+├── .gitattributes                        # *.sh text eol=lf
 ├── CLAUDE.md                             # Updated: architecture, conventions
 ├── skills/
 │   └── dev/
@@ -85,19 +89,28 @@ target-project/.claude/
 │   └── interface-worker.md               # Layer-specific: controllers, DTOs
 ├── commands/
 │   ├── dev.md                            # /dev — entry point
-│   ├── pm-sync.md                        # /pm:sync — generated per capabilities
-│   ├── pm-status.md                      # /pm:status
-│   ├── pm-next.md                        # /pm:next
-│   └── pm-standup.md                     # /pm:standup
+│   ├── pm-sync.md                        # /pm:sync — delegates to scripts/
+│   ├── pm-status.md                      # /pm:status — inline (display only)
+│   ├── pm-next.md                        # /pm:next — inline (display only)
+│   └── pm-standup.md                     # /pm:standup — inline (display only)
+├── scripts/                              # Shell scripts for complex operations
+│   ├── pm-sync.sh                        # GitHub sync logic (tested by wizard)
+│   ├── pm-close.sh                       # Close epic/task (git + GitHub)
+│   └── test-setup.sh                     # Meta-test: verifies all scripts work
 ├── hooks/
 │   └── hooks.json                        # Self-improvement hook (Stop event)
 └── pm/                                   # ← .gitignore!
     └── config.yaml                       # Wizard settings
 ```
 
+**Script generation rules (Hybrid approach):**
+- Scripts (`scripts/*.sh`): git/GitHub/docker operations — `sync`, `close`, verification
+- Inline commands: display-only — `status`, `standup`, `next` (no side effects)
+- All scripts tested by `script-tester` agent during wizard Gate 3.5
+
 ---
 
-## Wizard Flow — 6 Gates
+## Wizard Flow — 7 Gates
 
 The wizard runs interactively via `/pm:setup`. Each gate is a set of conceptual
 questions with trade-offs. The user decides at the pipeline level; technical details
@@ -108,16 +121,40 @@ questions with trade-offs. The user decides at the pipeline level; technical det
 At startup the wizard creates `.claude/pm-setup-state.yaml` (added to `.gitignore`).
 This tracks progress so interrupted sessions can resume. Deleted upon completion.
 
+**Hybrid caching (Decision C)**: stores key decisions + discovered facts per gate.
+Enough to resume without re-scanning, but not raw data dumps.
+
 ```yaml
 # .claude/pm-setup-state.yaml
 ---
 wizard_version: "1.0"
 started: 2026-02-15T12:00:00Z
 current_gate: 3
+platform:
+  os: linux            # uname -s result
+  shell: bash          # detected shell
+  wsl: false           # WSL detected?
+  autocrlf: input      # git core.autocrlf
 gates:
-  1: { completed: true, stack: "NestJS+Prisma", arch: "Clean", existing_skills: true }
-  2: { completed: true, mode: "parallel-hybrid", conflict_zones: ["shared/types/"] }
-  3: { completed: false }
+  1:
+    completed: true
+    stack: "NestJS+Prisma"
+    arch: "Clean"
+    layers:
+      domain: "src/domain/"
+      application: "src/application/"
+      infrastructure: "src/infrastructure/"
+      interface: "src/interface/"
+    existing_skills: ["dev"]
+    conflict_zones: ["shared/types/"]
+  2:
+    completed: true
+    mode: "parallel-hybrid"
+  3:
+    completed: false
+    backlog: ["github", "file"]
+    github_repo: "owner/repo"
+    tech_business_split: true
 ---
 ```
 
@@ -164,6 +201,42 @@ gates:
 - GitHub: `gh auth status` + repo detection + label creation
 - Other tools: guided setup based on discovered capabilities
 - No API: fallback to BACKLOG.md + manual sync instructions
+
+### Gate 3.5: Script Verification
+
+After Gate 3 generates scripts for backlog/GitHub integration, verify they work.
+
+**Step 3.5.1 — Platform hygiene (automatic, no user interaction):**
+- Detect OS: `uname -s` → Linux/Darwin/MINGW (WSL)
+- Check shell: `bash --version`
+- Check git config: `git config core.autocrlf` → warn if `true`
+- Generate `.claude/.gitattributes`: `*.sh text eol=lf`
+- Set permissions: `chmod +x .claude/scripts/*.sh`
+
+**Step 3.5.2 — Script validation:**
+- Syntax check: `bash -n scripts/*.sh` for each generated script
+- Line endings check: verify LF (not CRLF)
+- Dry-run where supported: `scripts/pm-sync.sh --dry-run`
+
+**Step 3.5.3 — Integration smoke test:**
+Wizard dispatches `script-tester` agent which:
+1. Creates temporary test entities (e.g., GitHub test issue with label `pm-test`)
+2. Runs each script against test data
+3. Verifies expected output/side effects
+4. Cleans up all test entities
+5. Reports pass/fail per script
+
+**Step 3.5.4 — Iterate on failures:**
+If any script fails, `script-tester` agent:
+- Analyzes the error
+- Fixes the script
+- Re-runs the failed test
+- Reports to wizard when all pass or after 3 failed attempts (escalate to user)
+
+**Cross-platform notes:**
+- Windows: Claude Code runs via WSL, bash scripts work. Wizard checks WSL detection.
+- Mac: Same as Linux for script purposes.
+- `git config core.autocrlf input` recommended — wizard suggests if set to `true`.
 
 ### Gate 4: Quality & Cross-Repo Scope
 
@@ -311,13 +384,34 @@ Since contracts are fixed:
 No runtime coordination needed. Conflicts only possible in shared files (types/index.ts),
 resolved via git.
 
-### Context Isolation
+### Contract Negotiation Protocol (Decision C: Threshold)
+
+When a stream discovers a contract is wrong or insufficient:
+
+```
+Stream finds contract issue → reports in ### Contract Issues section
+                            ↓
+1 issue  → CONTINUE: stream implements workaround, notes in report
+2 issues → HALT ALL: conductor stops all streams, shows issues to user
+           User decides: fix contract + restart / continue with workarounds
+3+ issues → HALT + suggest sequential fallback
+```
+
+Streams MUST NOT modify contracts directly. Only conductor (main thread) can
+update `contracts.md` after user approval.
+
+### Context Isolation (Decision A+B: strict limits + two-phase)
 
 The conductor (main thread) never sees code from streams. Only:
-- What was accomplished (bullet list)
-- Files modified (list)
-- Blockers (if any)
-- Insights discovered (see below)
+- What was accomplished (max 5 bullets)
+- Files modified (paths only, no excerpts)
+- Blockers (max 3 items)
+- Insights (max 2 per stream)
+
+**Two-phase collection in Phase 3:**
+- Phase 3a: Collect reports + `tsc --noEmit` → if OK, discard report details,
+  keep only summary
+- Phase 3b: Run quality gates (no longer holding full reports in context)
 
 This prevents context pollution and compaction on large features.
 
@@ -494,15 +588,17 @@ pm-core is only needed for `/pm:upgrade`.
 
 ## Component Summary
 
-### pm-core Plugin Components (14 total)
+### pm-core Plugin Components (17 total)
 
 | Component | Type | Purpose |
 |-----------|------|---------|
-| `project-setup/SKILL.md` | Skill | Wizard controller — 6 gates |
+| `project-setup/SKILL.md` | Skill | Wizard controller — 7 gates |
 | `references/architecture-audit.md` | Reference | How to analyze project fitness |
 | `references/conductor-pattern.md` | Reference | Parallel conductor flow template |
 | `references/contract-convention.md` | Reference | Naming convention template |
 | `references/backlog-strategies.md` | Reference | Discovery + capabilities per tool |
+| `references/script-testing.md` | Reference | Script verification + smoke test patterns |
+| `references/standard-patterns.md` | Reference | Preflight, error format, output format |
 | `references/backend-nestjs-template.md` | Reference | NestJS + Clean Arch template |
 | `references/backend-generic-template.md` | Reference | Generic backend template |
 | `references/frontend-template.md` | Reference | Frontend (FSD/SPA) template |
@@ -511,6 +607,7 @@ pm-core is only needed for `/pm:upgrade`.
 | `commands/setup.md` | Command | `/pm:setup` — launch wizard |
 | `commands/upgrade.md` | Command | `/pm:upgrade` — improve existing |
 | `agents/architecture-auditor.md` | Agent | Deep project analysis |
+| `agents/script-tester.md` | Agent | Script verification + smoke tests |
 | `agents/skill-generator.md` | Agent | Generate project-specific files |
 
 ### Generated Components (examples, depend on stack)
@@ -537,6 +634,7 @@ for full verification: build + migrate + tsc + test.
 ## Review Findings & Mitigations
 
 Triple-source review (2026-02-15): CCPM gap analysis, plugin-dev conventions, feasibility.
+All decisions finalized after discussion.
 
 ### Critical — Must Address
 
@@ -544,9 +642,9 @@ Triple-source review (2026-02-15): CCPM gap analysis, plugin-dev conventions, fe
 |---|---------|--------|------------|
 | C1 | Hook format wrong (needs wrapper `{"hooks":{"Stop":[...]}}`) | plugin-dev | **Fixed above** — corrected hooks.json format |
 | C2 | Agent frontmatter needs `<example>` blocks for triggering | plugin-dev | Add to agent templates in `references/` — each generated agent gets 2-4 example blocks |
-| C3 | Shell script delegation for complex commands | CCPM | Generate both `commands/*.md` (delegates) + `scripts/*.sh` (implementation) for heavy operations |
+| C3 | Shell script delegation for complex commands | CCPM | **Hybrid (C)**: scripts for git/GitHub/docker ops (`sync`, `close`), inline for display (`status`, `standup`). Gate 3.5 tests all scripts via TDD with `script-tester` agent |
 | C4 | Preflight validation pattern in every command | CCPM | Add standardized preflight checklist to `references/pm-commands-template.md` |
-| C5 | No contract change recovery mid-stream | feasibility | **Contract negotiation protocol**: stream reports `### Contract Issues`, conductor halts + asks user. Fallback to sequential if 2+ issues arise |
+| C5 | No contract change recovery mid-stream | feasibility | **Threshold (C)**: 1 issue → continue with workaround; 2 → halt all, user decides; 3+ → suggest sequential fallback. Streams NEVER modify contracts directly |
 | C6 | Agent generation unrealistic without templates | feasibility | Use **template-based generation**: `references/agent-template-{layer}.md` with placeholder sections. Skill-generator fills placeholders, doesn't free-form write |
 | C7 | Frontmatter stripping for GitHub sync | CCPM | Strip YAML frontmatter before posting to GitHub, preserve locally. Add to sync command template |
 
@@ -570,7 +668,7 @@ Triple-source review (2026-02-15): CCPM gap analysis, plugin-dev conventions, fe
 |---|---------|--------|------------|
 | W1 | 10 reference files — progressive disclosure concern | plugin-dev | Acceptable for meta-tool complexity. SKILL.md stays lean (orchestration only) |
 | W2 | Generated components should self-document origin | feasibility | Add `# Generated by pm-core v{X} on {date}` header to all generated files |
-| W3 | Wizard context window risk on large projects | feasibility | Cache analysis results in `pm-setup-state.yaml` per gate. Break Gate 5 naming audit into focused scans |
+| W3 | Wizard context window risk on large projects | feasibility | **Hybrid state (C)**: cache decisions + discovered facts per gate, not raw data. Break Gate 5 naming audit into focused scans |
 | W4 | State concurrency — parallel agents sharing `.claude/pm/` | feasibility | Strict isolation: streams write only own report file, conductor owns all shared state |
 | W5 | Cross-repo analysis underspecified | feasibility | **Defer to Phase Omega**. MVP: single-repo only |
 | W6 | Upgrade: distinguishing generated vs user-customized files | feasibility | Track `generated-manifest.yaml` with file hashes. Diff before overwriting, ask user on conflicts |
@@ -580,15 +678,20 @@ Triple-source review (2026-02-15): CCPM gap analysis, plugin-dev conventions, fe
 
 ### Phase Alpha: Wizard + Backlog (MVP)
 
-**Scope**: Gates 1-3 of wizard + BACKLOG.md + GitHub Issues integration
+**Scope**: Gates 1-3.5 of wizard + BACKLOG.md + GitHub Issues integration
 
 - Gate 1: Project Understanding (architecture audit)
 - Gate 2: Pipeline Mode (parallel/sequential decision)
 - Gate 3: Task Tracking (GitHub + BACKLOG.md only, no other integrations)
-- Generate: BACKLOG structure, GitHub labels, basic `/pm:sync` command
-- Agent: `architecture-auditor.md` only
+- Gate 3.5: Script Verification (platform check, smoke tests, TDD iterations)
+- Generate: BACKLOG structure, GitHub labels, `/pm:sync` command + script,
+  `.gitattributes`, `test-setup.sh`
+- Agents: `architecture-auditor.md`, `script-tester.md`
+- References: `architecture-audit.md`, `backlog-strategies.md`,
+  `script-testing.md`, `standard-patterns.md`
 
-**Validates**: wizard flow, state persistence, GitHub integration
+**Validates**: wizard flow, state persistence, GitHub integration,
+script generation + testing pipeline, cross-platform compatibility
 
 ### Phase Beta: Sequential Dev-Skill Generation
 
