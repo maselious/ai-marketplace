@@ -63,6 +63,43 @@ Check for:
 - `.claude/hooks/hooks.json` — hooks configured
 - `CLAUDE.md` — project instructions (note presence + size)
 
+## Step 4.5: Detect Worktree Ecosystem
+
+Check if the project uses dev-worktree plugin for parallel development:
+
+```bash
+# Active worktree state
+cat .claude/dev-worktree.local.md 2>/dev/null
+
+# Worktree directories
+ls -d .worktrees/ worktrees/ 2>/dev/null
+git worktree list 2>/dev/null | wc -l
+
+# Docker Compose (worktree-capable project)
+ls docker-compose.yml docker-compose.yaml compose.yml compose.yaml 2>/dev/null
+
+# Running compose stacks (warm pools, active stacks)
+docker compose ls --format json 2>/dev/null | jq -r '.[].Name' | wc -l
+```
+
+| Detection | Impact on Audit |
+|-----------|----------------|
+| `.claude/dev-worktree.local.md` exists | Project actively uses worktrees — parallel score +1 |
+| Multiple worktrees listed | Team is already doing parallel work |
+| Docker Compose + `.worktrees/` in `.gitignore` | Worktree-ready project |
+| No worktree indicators | Worktrees not yet set up |
+
+Include in output:
+
+```
+Worktree ecosystem:
+  Active worktrees: {count}
+  Docker stacks: {count} running
+  Worktree-ready: {yes/no}
+```
+
+This information helps Gate 2 (pipeline mode) recommend parallel workflows when worktree infrastructure is already in place.
+
 ## Step 5: Detect Conflict Zones
 
 Shared directories where parallel streams would conflict:
@@ -86,6 +123,7 @@ Flag:
 | Few shared files (<10) | +1 |
 | Strong typing (TypeScript strict) | +1 |
 | Existing test infrastructure | +1 |
+| Worktree-ready (Docker Compose + .worktrees in .gitignore) | +1 |
 | Many shared files (>20) | -2 |
 | Circular dependencies detected | -3 |
 | No clear layer separation | -3 |
@@ -109,6 +147,11 @@ Flag:
     Existing .claude/:
       Skills: {list or "none"}
       Agents: {list or "none"}
+
+    Worktree ecosystem:
+      Active worktrees: {count or "none"}
+      Docker stacks: {count or "none"}
+      Worktree-ready: {yes/no}
 
     Conflict zones: {paths} ({file_count} files)
     Parallel readiness: {score}/10 — {recommendation}

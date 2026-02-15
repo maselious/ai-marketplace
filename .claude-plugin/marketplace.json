@@ -20,7 +20,7 @@
       "name": "dev-worktree",
       "source": "./plugins/dev-worktree",
       "description": "Git worktree lifecycle for Docker backends and frontend projects: readiness assessment, environment isolation, port allocation, shared Docker mode, smart teardown, warm standby, similar worktree detection, main Docker protection, backend URL discovery, backlog integration.",
-      "version": "0.6.1",
+      "version": "0.6.2",
       "author": {
         "name": "Marisko"
       }
@@ -29,7 +29,7 @@
       "name": "pm-core",
       "source": "./plugins/pm-core",
       "description": "Project management meta-tool: analyzes projects and generates customized dev-skills, agents, commands, and quality gates",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "author": {
         "name": "Marisko"
       }

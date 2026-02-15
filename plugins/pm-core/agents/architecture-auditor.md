@@ -36,6 +36,10 @@ For each detected layer: directory path, module count, key patterns (base classe
 
 List all existing skills, agents, commands, hooks, CLAUDE.md presence.
 
+### Step 4.5: Worktree Ecosystem Detection
+
+Check for dev-worktree plugin state, active worktrees, Docker Compose, running stacks. See audit reference for details.
+
 ### Step 5: Conflict Zone Detection
 
 Find shared directories imported by multiple layers. Count shared files.
@@ -47,4 +51,4 @@ Score 0-10 based on criteria in audit reference. Provide recommendation.
 ## Output
 
 Return structured audit report matching the format in `references/architecture-audit.md`.
-Include all data needed for wizard state caching: stack, arch, layers, existing_skills, conflict_zones, parallel_score.
+Include all data needed for wizard state caching: stack, arch, layers, existing_skills, worktree_ecosystem, conflict_zones, parallel_score.

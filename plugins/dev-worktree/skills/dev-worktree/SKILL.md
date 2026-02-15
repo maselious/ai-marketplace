@@ -199,7 +199,10 @@ docker compose ls --format json 2>/dev/null
 | No running stacks | Any | → Phase 3 (isolated, no choice) |
 | Stack found | `--shared` | → Phase 3S (shared mode) |
 | Stack found | No flag | Present options, ask user |
+| Warm pool stack available | Any | Offer instant reuse (shared mode via pool) |
 | Warm standby stack (orphaned) | Any | Offer reuse: shared or isolated |
+
+**Pool detection:** See `references/worktree-lifecycle.md` → "Docker Pool" for pool inventory algorithm. If pool stacks exist, prefer offering them first — reuse is instant (no Docker startup).
 
 **GATE:** If stack found and no explicit flag, present:
 
@@ -801,11 +804,18 @@ When user runs `/worktree cleanup` or asks to clean up Docker resources:
 3. **Present choices:**
 
 ```
+Docker Pool for <project>:
+  Active stacks:  2 (assigned to worktrees)
+  Pool (warm):    1 (ready for instant reuse)
+  Main tree:      1 (protected)
+
 Warm standby stacks:
   myapp-wt1   — running 3 days, 512MB    [keep / remove]
   myapp-wt2   — running 1 day, 480MB     [keep / remove]
 
 Orphan volumes: 2 (1.2GB total)          [clean / keep]
+
+Recommended pool size: 1
 ```
 
 4. **Exclude main tree stack** — never list the main tree's Docker stack as removable
@@ -838,7 +848,8 @@ Orphan volumes: 2 (1.2GB total)          [clean / keep]
 | Tearing down linked task | Ask: mark completed, revert to pending, or leave as-is |
 | Teardown isolated worktree | Offer: full removal, warm standby, or stop only |
 | Teardown shared worktree | Drop database, keep Docker running |
-| `/worktree cleanup` | List warm stacks + orphans, offer removal |
+| Docker pool stack available | Offer instant reuse via shared mode |
+| `/worktree cleanup` | Show pool inventory + warm stacks + orphans, offer management |
 
 ## Common Mistakes
 

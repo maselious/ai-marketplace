@@ -243,6 +243,85 @@ for stack in $running; do
 done
 ```
 
+### Docker Pool (Proactive Warm-Start)
+
+Instead of waiting for teardown to create warm stacks, proactively maintain a pool of ready-to-use Docker stacks. This is useful for teams or workflows that frequently create/destroy worktrees.
+
+**Pool concept:**
+
+A warm stack is a running Docker Compose project with:
+- All services healthy
+- Database with applied migrations (from main branch)
+- No active worktree assigned
+
+**Pool inventory:**
+
+```bash
+main_root="$(git worktree list | head -1 | awk '{print $1}')"
+project_base="$(basename "$main_root")"
+
+# All running compose projects for this repo (excluding main tree)
+all_stacks=$(docker compose ls --format json | jq -r '.[].Name' | grep -i "$project_base")
+
+# Active worktrees
+active_wts=$(git worktree list | tail -n +2 | awk '{print $1}')
+
+# Pool = running stacks minus active worktree stacks minus main tree stack
+pool_count=0
+for stack in $all_stacks; do
+  # Skip main tree stack
+  docker compose -p "$stack" config --format json 2>/dev/null | grep -q "$main_root" && continue
+  # Skip stacks with active worktrees
+  in_use=false
+  for wt in $active_wts; do
+    grep -q "compose_project: $stack" "$wt/../.claude/dev-worktree.local.md" 2>/dev/null && in_use=true
+  done
+  $in_use && continue
+  pool_count=$((pool_count + 1))
+  echo "Pool stack: $stack"
+done
+echo "Pool size: $pool_count"
+```
+
+**When to suggest pooling:**
+
+| Condition | Suggestion |
+|-----------|-----------|
+| User tears down with "warm standby" for 2nd+ time | "You have $n warm stacks. Consider this your Docker pool." |
+| User creates a worktree and a warm stack exists | "Reuse warm stack (instant) or create new (30-60s)?" |
+| User runs `/worktree cleanup` and warm stacks exist | Show pool inventory, offer to keep N stacks |
+
+**Pool assignment for new worktree:**
+
+```bash
+# 1. Pick oldest warm stack from pool
+pool_stack="<first-available>"
+
+# 2. Create new database in the pool stack
+db_name="${project_base}_wt${index}"
+docker compose -p "$pool_stack" exec db createdb -U postgres "$db_name"
+
+# 3. Proceed as shared mode (Phase 3S)
+```
+
+**Pool size recommendation:**
+
+- Solo developer: 1 warm stack is enough
+- Frequent branching: 2 stacks (one for reuse, one as backup)
+- Never more than 3 (diminishing returns, resource waste)
+
+Present pool size info during `/worktree cleanup`:
+
+```
+Docker Pool for <project>:
+  Active stacks:  2 (assigned to worktrees)
+  Pool (warm):    1 (ready for instant reuse)
+  Main tree:      1 (protected, not in pool)
+
+  Recommended pool size: 1
+  Current pool: optimal ✓
+```
+
 ### Orphan Detection
 
 After teardown, check for leftover resources:
