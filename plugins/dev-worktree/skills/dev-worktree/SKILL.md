@@ -84,6 +84,41 @@ grep -E '"(react|vue|svelte|angular|next|nuxt|@tanstack)"' package.json 2>/dev/n
 | Docker Compose + frontend framework (hybrid like Strapi, Medusa) | **Backend (Docker)** | → Phase 1 (hybrid treated as backend) |
 | No git repo / no package.json | **Unknown** | STOP — ask user |
 
+### Similar worktree detection (Setup mode)
+
+Before creating a worktree, check for existing worktrees with similar branches:
+
+```bash
+# List existing worktree branches
+git worktree list --porcelain | grep '^branch' | sed 's|branch refs/heads/||'
+```
+
+Compare the requested branch against existing ones:
+
+| Match type | Example | Action |
+|-----------|---------|--------|
+| **Exact match** | Request `feat/auth`, existing `feat/auth` | STOP — branch already has a worktree |
+| **Prefix match** | Request `feat/auth-v2`, existing `feat/auth` | WARN — similar feature exists |
+| **Keyword overlap** | Request `fix/payment-bug`, existing `feat/payment-flow` | INFORM — related worktree exists |
+
+**If similar worktree found:**
+
+```
+⚠ Similar worktree detected:
+
+  Existing:  .worktrees/feat-auth       (branch: feat/auth)
+  Requested: .worktrees/feat-auth-v2    (branch: feat/auth-v2)
+
+  Options:
+    1. Continue — create new worktree anyway
+    2. Switch — cd into the existing worktree instead
+    3. Replace — tear down existing, create new
+
+  What would you prefer?
+```
+
+Skip this check if user explicitly confirmed (e.g., repeated the command after a warning).
+
 ### Mode selection
 
 Determine intent from user's request:
@@ -667,13 +702,33 @@ Remove worktree .worktrees/<slug>?
 This will delete the directory and all local changes.
 ```
 
-### Step 4: Escape to main tree root
+### Step 4: Safety checks
 
-**Critical — do this BEFORE any destructive operations.** If CWD is inside the worktree
+**4a. Main Docker protection:**
+
+Before any Docker teardown, verify the target is NOT the main tree's Docker stack:
+
+```bash
+main_root="$(git worktree list | head -1 | awk '{print $1}')"
+# If compose config file lives in main root — REFUSE to tear down
+compose_config=$(docker compose -p "$project_name" config --format json 2>/dev/null | jq -r '.name' 2>/dev/null)
+```
+
+**HARD RULE:** Never run `docker compose down` on a stack whose compose file resides in the main working tree root. If the user explicitly asks, warn:
+
+```
+⛔ This is the main tree's Docker stack.
+Tearing it down would affect your primary development environment.
+Only worktree-created stacks can be removed via this skill.
+```
+
+**4b. Escape to main tree root:**
+
+Do this BEFORE any destructive operations. If CWD is inside the worktree
 being deleted, the shell breaks.
 
 ```bash
-cd "$(git worktree list | head -1 | awk '{print $1}')"
+cd "$main_root"
 ```
 
 ### Step 5: Execute teardown
@@ -753,8 +808,9 @@ Warm standby stacks:
 Orphan volumes: 2 (1.2GB total)          [clean / keep]
 ```
 
-4. Remove selected stacks: `docker compose -p <name> down -v --remove-orphans`
-5. Prune orphan volumes: `docker volume prune --filter "label=com.docker.compose.project=<name>"`
+4. **Exclude main tree stack** — never list the main tree's Docker stack as removable
+5. Remove selected stacks: `docker compose -p <name> down -v --remove-orphans`
+6. Prune orphan volumes: `docker volume prune --filter "label=com.docker.compose.project=<name>"`
 
 ## Quick Reference
 
@@ -769,6 +825,7 @@ Orphan volumes: 2 (1.2GB total)          [clean / keep]
 | Existing Docker stack running | Offer shared mode (Phase 3S) or isolated (Phase 3) |
 | Warm standby stack found | Offer reuse for new worktree |
 | `--shared` flag | Skip to Phase 3S |
+| Similar worktree exists | Warn user: continue / switch / replace |
 | Inside a worktree already | Offer teardown (smart options) |
 | Migration tool unknown | Check CLAUDE.md → README → auto-detect → ask |
 | Health check fails | Show logs, ask user |
@@ -784,6 +841,11 @@ Orphan volumes: 2 (1.2GB total)          [clean / keep]
 | `/worktree cleanup` | List warm stacks + orphans, offer removal |
 
 ## Common Mistakes
+
+### Tearing down the main tree's Docker stack
+
+- **Problem:** `docker compose down` on the main tree's stack destroys the primary dev environment
+- **Fix:** Always check if the target stack's compose file lives in the main working tree root. If so — refuse. Main tree Docker is protected.
 
 ### Forgetting compose project name
 
@@ -806,6 +868,9 @@ Orphan volumes: 2 (1.2GB total)          [clean / keep]
 - **Fix:** Always verify `.worktrees/` is ignored before creating
 
 ## Checklist
+
+### All Modes (Phase 0)
+- [ ] Similar worktree detection run (no conflicting branch)
 
 ### Backend (Isolated) Mode
 - [ ] Docker Compose detected (Phase 0)
@@ -857,4 +922,5 @@ After each use:
 7. **New backlog format not recognized?** → Update `references/backlog-integration.md` with the new format
 8. **Shared mode caused service conflicts?** → Update `references/shared-docker.md` with the conflict pattern
 9. **Warm standby stack left running too long?** → Add auto-cleanup timer to `references/worktree-lifecycle.md`
-10. **Structural issue with this skill?** → Invoke `skill-forge` in IMPROVE mode
+10. **Similar worktree check missed a collision?** → Improve keyword extraction in `references/worktree-lifecycle.md` → "Similar Worktree Check"
+11. **Structural issue with this skill?** → Invoke `skill-forge` in IMPROVE mode

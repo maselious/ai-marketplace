@@ -207,7 +207,9 @@ When tearing down a shared-mode worktree:
    done
    ```
    **Note:** State file tracks only the most recent worktree. Use `docker compose ls` + worktree list cross-check for best-effort detection.
-   If no remaining consumers and the stack was not started from the main tree, ask:
+   If no remaining consumers:
+   - **If the stack is the main tree's stack** → Do NOT offer to stop it. Main tree Docker is always protected.
+   - **Otherwise** → ask:
    ```
    No worktrees are using Docker stack "<stack-name>".
    Keep it running (warm standby) or stop it?

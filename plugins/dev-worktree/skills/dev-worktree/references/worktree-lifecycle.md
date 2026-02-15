@@ -26,6 +26,30 @@ slug=$(echo "$branch" | sed 's|/|-|g')
 # feat/auth-refactor → feat-auth-refactor
 ```
 
+### Similar Worktree Check
+
+Before creating, scan for existing worktrees with overlapping branches:
+
+```bash
+# Get all worktree branches
+existing_branches=$(git worktree list --porcelain | grep '^branch' | sed 's|branch refs/heads/||')
+
+# Check for exact match (branch already has a worktree)
+echo "$existing_branches" | grep -Fx "$branch" && echo "ERROR: branch already checked out in a worktree"
+
+# Check for prefix overlap (e.g., feat/auth vs feat/auth-v2)
+branch_prefix=$(echo "$branch" | sed 's|-[^-]*$||')  # feat/auth-v2 → feat/auth
+echo "$existing_branches" | grep "^${branch_prefix}" | grep -v "^${branch}$"
+
+# Check for keyword overlap (split on / and -)
+keywords=$(echo "$branch" | tr '/-' '\n' | grep -v -E '^(feat|fix|exp|chore)$')
+for kw in $keywords; do
+  echo "$existing_branches" | grep -i "$kw" | grep -v "^${branch}$"
+done
+```
+
+If matches found — present options to user (continue / switch / replace) before proceeding.
+
 ### Create Command
 
 ```bash
@@ -100,7 +124,14 @@ breaks the shell (Linux cannot resolve `.` for a deleted inode).
 
 ```bash
 # 0. FIRST — escape to main tree root (prevents broken CWD)
-cd "$(git worktree list | head -1 | awk '{print $1}')"
+main_root="$(git worktree list | head -1 | awk '{print $1}')"
+cd "$main_root"
+
+# 0.5. SAFETY — verify target is NOT the main tree's stack
+if [ "$(realpath .worktrees/$slug)" = "$(realpath $main_root)" ]; then
+  echo "⛔ Refusing to tear down main tree's Docker stack"
+  exit 1
+fi
 
 # 1. Stop and remove Docker resources (from OUTSIDE, using -f)
 docker compose -p $project_name -f .worktrees/$slug/docker-compose.yml down -v --remove-orphans
@@ -198,10 +229,18 @@ Warm Docker stack detected: <project>-wt1
 **Cleanup command:** When user runs `/worktree cleanup`:
 
 ```bash
-# List all warm stacks
-# For each: show last activity, disk usage
-# Ask: keep or remove?
-docker compose -p $stack down -v --remove-orphans
+main_root="$(git worktree list | head -1 | awk '{print $1}')"
+
+# List all warm stacks (EXCLUDING main tree's stack)
+for stack in $running; do
+  # Skip main tree's stack — never offer to remove it
+  if docker compose -p "$stack" config --format json 2>/dev/null | grep -q "$main_root"; then
+    continue
+  fi
+  # Show last activity, disk usage
+  # Ask: keep or remove?
+  docker compose -p $stack down -v --remove-orphans
+done
 ```
 
 ### Orphan Detection

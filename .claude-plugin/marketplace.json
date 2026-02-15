@@ -19,8 +19,8 @@
     {
       "name": "dev-worktree",
       "source": "./plugins/dev-worktree",
-      "description": "Git worktree lifecycle for Docker backends and frontend projects: readiness assessment, environment isolation, port allocation, shared Docker mode, smart teardown, warm standby, backend URL discovery, backlog integration.",
-      "version": "0.6.0",
+      "description": "Git worktree lifecycle for Docker backends and frontend projects: readiness assessment, environment isolation, port allocation, shared Docker mode, smart teardown, warm standby, similar worktree detection, main Docker protection, backend URL discovery, backlog integration.",
+      "version": "0.6.1",
       "author": {
         "name": "Marisko"
       }
