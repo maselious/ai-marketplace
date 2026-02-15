@@ -179,6 +179,7 @@ running=$(docker compose ls --format json | jq -r '.[].Name')
 # All worktree directories
 worktrees=$(git worktree list | tail -n +2 | awk '{print $1}')
 
+# See shared-docker.md → "Detecting Reusable Orphan Stacks" for full algorithm
 # Match: stack is warm if no worktree references it and it's not the main tree stack
 ```
 

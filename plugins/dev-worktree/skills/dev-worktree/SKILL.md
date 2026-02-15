@@ -417,6 +417,10 @@ EOF
 
 **Frontend mode:** Same step, but `compose_project` is empty.
 
+**Shared Docker mode:** See Phase 3S Step 5 for the extended state file format (includes `shared_docker` and `shared_db_name` fields).
+
+**Note:** The state file tracks ONE active worktree. If multiple worktrees are active simultaneously, only the most recent is tracked for session restore. The "last shared consumer" check in teardown is best-effort.
+
 **Why:** On session restore, the SessionStart hook reads this file and reminds the agent to cd back into the worktree.
 
 ## Backlog Update

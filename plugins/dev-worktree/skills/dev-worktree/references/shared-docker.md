@@ -131,23 +131,7 @@ Copy `.env` from the stack's source (main tree or donor worktree), then:
    Note: port stays at the stack's port (no offset).
 4. **Apply YAGNI minimization** as usual (see `env-configuration.md`)
 
-### Step 4: Record shared mode in state
-
-Write `.claude/dev-worktree.local.md` with shared flag:
-
-```yaml
----
-active_worktree: /path/to/.worktrees/feat-auth
-branch: feat/auth
-compose_project: <stack-name>
-shared_docker: true
-shared_db_name: myapp_wt2
-created: 2026-02-15
----
-Active worktree session (shared Docker mode). Managed by dev-worktree plugin.
-```
-
-### Step 5: Run migrations
+### Step 4: Run migrations
 
 Migrations run against the **new database** via the existing stack:
 
@@ -167,6 +151,24 @@ docker compose -p <stack-name> exec -e DATABASE_NAME="$db_name" "$api_service" <
 ```
 
 **Important:** If the migration tool reads `DATABASE_URL` from `.env`, ensure the worktree's `.env` is mounted or the variable is passed via `-e`.
+
+### Step 5: Record shared mode in state
+
+Write `.claude/dev-worktree.local.md` with shared flag:
+
+```yaml
+---
+active_worktree: /path/to/.worktrees/feat-auth
+branch: feat/auth
+compose_project: <stack-name>
+shared_docker: true
+shared_db_name: myapp_wt2
+created: 2026-02-15
+---
+Active worktree session (shared Docker mode). Managed by dev-worktree plugin.
+```
+
+**Note:** The state file tracks ONE active worktree per project root. If multiple shared worktrees are active simultaneously, only the most recent is recorded for session restore.
 
 ### Step 6: Verify
 
@@ -195,12 +197,17 @@ When tearing down a shared-mode worktree:
 
 3. **Do NOT stop Docker** — other worktrees or the main tree may use it.
 
-4. **Check if this was the last shared consumer:**
+4. **Check if other worktrees still use this stack:**
    ```bash
-   # Count worktrees using this stack (check state files or grep for compose_project)
-   grep -rl "compose_project: <stack-name>" .worktrees/*/../../.claude/dev-worktree.local.md 2>/dev/null | wc -l
+   # Check state file for remaining references
+   STATE_FILE="$(git worktree list | head -1 | awk '{print $1}')/.claude/dev-worktree.local.md"
+   # Also check if any remaining worktrees have .env pointing to this stack's ports
+   git worktree list | tail -n +2 | awk '{print $1}' | while read wt; do
+     grep -q "compose_project.*<stack-name>" "$wt/../.claude/dev-worktree.local.md" 2>/dev/null && echo "$wt"
+   done
    ```
-   If zero remaining and the stack was originally started for a worktree (not the main tree), ask:
+   **Note:** State file tracks only the most recent worktree. Use `docker compose ls` + worktree list cross-check for best-effort detection.
+   If no remaining consumers and the stack was not started from the main tree, ask:
    ```
    No worktrees are using Docker stack "<stack-name>".
    Keep it running (warm standby) or stop it?
@@ -223,22 +230,23 @@ running_stacks=$(docker compose ls --format json | jq -r '.[].Name')
 # Get all active worktrees
 active_worktrees=$(git worktree list | tail -n +2 | awk '{print $1}')
 
-# A stack is orphaned if no worktree references it
+# State file (single file per project root)
+project_root=$(git worktree list | head -1 | awk '{print $1}')
+state_file="$project_root/.claude/dev-worktree.local.md"
+
+# A stack is orphaned if:
+# 1. No active worktree's .env references its ports
+# 2. It's not the main tree's own stack
 for stack in $running_stacks; do
-  found=false
-  for wt in $active_worktrees; do
-    if grep -q "compose_project: $stack" "$wt/../../.claude/dev-worktree.local.md" 2>/dev/null; then
-      found=true
-      break
-    fi
-  done
-  # Also check if it's the main tree's stack
-  if docker compose -p "$stack" config --format json 2>/dev/null | grep -q "$(git rev-parse --show-toplevel)"; then
-    found=true
+  # Check if it's the main tree's stack
+  if docker compose -p "$stack" config --format json 2>/dev/null | grep -q "$project_root"; then
+    continue  # Not orphaned — it's the main tree's stack
   fi
-  if [ "$found" = false ]; then
-    echo "Orphan stack: $stack"
+  # Check state file
+  if [ -f "$state_file" ] && grep -q "compose_project: $stack" "$state_file"; then
+    continue  # Active worktree uses it
   fi
+  echo "Orphan stack: $stack"
 done
 ```
 
