@@ -222,7 +222,7 @@ Port Mapping:
   MinIO API:      9002 → 9102
   MinIO Console:  9001 → 9101
 
-DATABASE_URL: postgresql://postgres:postgres@localhost:5532/gmapi_wt1
+DATABASE_URL: postgresql://postgres:postgres@localhost:5532/myapp_wt1
 
 Proceed with Docker deployment?
 ```
@@ -247,7 +247,7 @@ cd .worktrees/<branch-slug>
 docker compose -p <project-name> up -d
 ```
 
-Where `<project-name>` = slugified worktree identifier (e.g., `gm-wt1` or `gm-feat-auth`).
+Where `<project-name>` = slugified worktree identifier (e.g., `myapp-wt1` or `myapp-feat-auth`).
 
 If a `docker-compose.worktree.yml` override was generated:
 ```bash
@@ -427,7 +427,7 @@ ss -tlnp 2>/dev/null | grep -E ':(1337|3000|5000|8000|9000)\s'
 ```
 Available backends:
   1. Main backend (default): http://localhost:5000
-  2. Worktree backend (gm-wt1): http://localhost:5100
+  2. Worktree backend (<project>-wt1): http://localhost:5100
   3. Custom URL
 
 Which backend should this frontend connect to?

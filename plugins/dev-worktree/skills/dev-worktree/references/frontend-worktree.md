@@ -76,7 +76,7 @@ Present options to user:
 ```
 Available backends for this project:
   1. Main backend (default): http://localhost:5000
-  2. Worktree backend (gm-wt1): http://localhost:5100
+  2. Worktree backend (<project>-wt1): http://localhost:5100
   3. Custom URL: ___
 
 Which backend should this frontend connect to?

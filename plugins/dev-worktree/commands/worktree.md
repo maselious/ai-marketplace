@@ -63,7 +63,7 @@ Present as:
 ```
 Git Worktrees:
   main         /path/to/repo              (main working tree)
-  feat-auth    .worktrees/feat-auth       Docker: running (gm-wt1) — API :5100, DB :5532
+  feat-auth    .worktrees/feat-auth       Docker: running (<project>-wt1) — API :5100, DB :5532
   fix-bug      .worktrees/fix-bug         Frontend — backend: localhost:5000
 ```
 

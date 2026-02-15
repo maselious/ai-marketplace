@@ -71,10 +71,10 @@ If user separates technical and business tasks:
     # Preflight
     gh auth status >/dev/null 2>&1 || { echo "❌ gh not authenticated"; exit 1; }
 
-    # Check remote protection
+    # Check remote configured
     remote_url=$(git remote get-url origin 2>/dev/null || echo "")
-    if [[ "$remote_url" == *"maselious/ai-marketplace"* ]]; then
-      echo "❌ Cannot sync to plugin marketplace repo"; exit 1
+    if [ -z "$remote_url" ]; then
+      echo "❌ No remote origin configured"; exit 1
     fi
 
     # Build progress body

@@ -56,10 +56,20 @@ Preserve frontmatter locally — only strip for external publishing.
 
 ## Repository Protection
 
-Before any GitHub write operation, check remote:
+Before any GitHub write operation, verify remote is configured:
 
     remote_url=$(git remote get-url origin 2>/dev/null || echo "")
-    if [[ "$remote_url" == *"maselious/ai-marketplace"* ]]; then
-      echo "❌ Cannot sync to plugin marketplace repository"
+    if [ -z "$remote_url" ]; then
+      echo "❌ No remote origin configured"
       exit 1
     fi
+
+## Default Branch Detection
+
+Never hardcode branch names. Detect dynamically:
+
+    default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+    if [ -z "$default_branch" ]; then
+      default_branch=$(git branch -l main master develop 2>/dev/null | head -1 | tr -d ' *')
+    fi
+    : "${default_branch:=main}"  # Final fallback

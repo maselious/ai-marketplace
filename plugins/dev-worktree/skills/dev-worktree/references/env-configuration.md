@@ -128,19 +128,14 @@ Set a unique project name for each worktree:
 ```bash
 # Derive from branch slug
 project_name="$(basename $(git rev-parse --show-toplevel))-wt${index}"
-# Example: gm-platform-api-wt1
-```
-
-Or use a shorter form:
-```bash
-project_name="gm-wt${index}"
+# Example: myapp-wt1
 ```
 
 The project name is used in ALL compose commands:
 ```bash
-docker compose -p gm-wt1 up -d
-docker compose -p gm-wt1 logs api
-docker compose -p gm-wt1 down -v
+docker compose -p <project>-wt1 up -d
+docker compose -p <project>-wt1 logs api
+docker compose -p <project>-wt1 down -v
 ```
 
 ## Override File (if needed)
@@ -157,7 +152,7 @@ services:
 
 Usage:
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.worktree.yml -p gm-wt1 up -d
+docker compose -f docker-compose.yml -f docker-compose.worktree.yml -p <project>-wt1 up -d
 ```
 
 Add `docker-compose.worktree.yml` to `.gitignore`.

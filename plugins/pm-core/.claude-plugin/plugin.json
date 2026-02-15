@@ -1,6 +1,6 @@
 {
   "name": "pm-core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Project management meta-tool: analyzes projects and generates customized dev-skills, agents, commands, and quality gates",
   "author": {
     "name": "Marisko"

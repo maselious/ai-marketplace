@@ -43,7 +43,7 @@ Match URLs to known backend ports:
 | `:1337` | Strapi (CMS) |
 | `:3000` | Generic Node/Next.js |
 | `:4000` | Generic API / GraphQL |
-| `:5000` | NestJS / Flask / GM Platform API |
+| `:5000` | NestJS / Flask / Custom API |
 | `:8000` | Django / FastAPI |
 | `:8080` | Generic HTTP |
 | `:9000` | Medusa / MinIO |
@@ -88,8 +88,8 @@ Present this as the default choice with ability to override.
 Some frontends connect to multiple backends:
 
 ```
-lhb-portal → Strapi (:1337) + MongoDB (:27017)
-gm-admin → Medusa (:9000) + PostgreSQL (:5440) + Redis (:6380)
+storefront → Strapi (:1337) + MongoDB (:27017)
+admin-panel → Medusa (:9000) + PostgreSQL (:5440) + Redis (:6380)
 ```
 
 For these, list ALL connections and ask which ones to override (if any).
@@ -117,8 +117,8 @@ After discovering connections for the first time, suggest saving to project's CL
 
 | Service | URL | Env var | Project |
 |---------|-----|---------|---------|
-| GM Platform API | http://localhost:5000 | API_URL | ../gm-platform-api |
-| Redis | localhost:6379 | REDIS_HOST | (Docker in gm-platform-api) |
+| Backend API | http://localhost:5000 | API_URL | ../backend-api |
+| Redis | localhost:6379 | REDIS_HOST | (Docker in backend-api) |
 ```
 
 This prevents re-discovery in future sessions.

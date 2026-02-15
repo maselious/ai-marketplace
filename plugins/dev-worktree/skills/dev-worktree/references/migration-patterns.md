@@ -56,9 +56,9 @@ When the application runs inside Docker, execute migrations in the container:
 docker compose -p <project> exec <service> <migrate-command>
 
 # Examples
-docker compose -p gm-wt1 exec api npx prisma migrate deploy
-docker compose -p gm-wt1 exec api npx prisma db seed
-docker compose -p gm-wt1 exec web python manage.py migrate
+docker compose -p <project>-wt1 exec api npx prisma migrate deploy
+docker compose -p <project>-wt1 exec api npx prisma db seed
+docker compose -p <project>-wt1 exec web python manage.py migrate
 ```
 
 **Wait for the database to be ready** before running migrations:
