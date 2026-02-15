@@ -50,7 +50,21 @@ Create initial state with platform detection:
 
 Add to `.gitignore` if not present: `.claude/pm-setup-state.yaml` and `.claude/pm/`.
 
-## Gate 1: Project Understanding
+Reference files for this skill are in `references/` relative to this skill's directory.
+
+### TodoWrite Plan
+
+Create at initialization:
+- [ ] Gate 1: Architecture audit completed and confirmed
+- [ ] Gate 2: Pipeline mode selected
+- [ ] Gate 3: Task tracking configured
+- [ ] Gate 3.5: Scripts verified and tested
+- [ ] Generation: All files created
+- [ ] Cleanup: State file deleted
+
+Update status as each gate completes.
+
+### Gate 1: Project Understanding
 
 Load `references/architecture-audit.md`.
 
@@ -68,7 +82,7 @@ Load `references/architecture-audit.md`.
    - `stack`, `arch`, `layers`, `existing_skills`, `conflict_zones`, `parallel_score`
 6. Mark `gates.1.completed: true`, advance `current_gate: 2`
 
-## Gate 2: Development Pipeline
+### Gate 2: Development Pipeline
 
 Read `gates.1.parallel_score` from state.
 
@@ -90,10 +104,11 @@ Present options with trade-offs:
     Sequential recommended — architecture has significant coupling.
     Proceed? (yes / try parallel anyway)
 
-Cache decision in `gates.2.mode` (parallel | sequential | parallel-restricted).
-Mark complete, advance to Gate 3.
+Cache in state under `gates.2`:
+- `mode` (parallel | sequential | parallel-restricted)
+Mark `gates.2.completed: true`, advance `current_gate: 3`
 
-## Gate 3: Task Tracking & Integrations
+### Gate 3: Task Tracking & Integrations
 
 Load `references/backlog-strategies.md`.
 
@@ -113,15 +128,21 @@ For BACKLOG.md: generate template at `.claude/pm/BACKLOG.md`.
 
 **Step 3.4 — Generate scripts and commands.**
 Based on discovered capabilities, generate from templates in reference:
-- `scripts/pm-sync.sh`, `scripts/pm-close.sh`, `scripts/test-setup.sh`
-- `commands/pm-sync.md`, `commands/pm-status.md`, `commands/pm-close.md`
+- Scripts at `.claude/scripts/`:
+  - `pm-sync.sh`, `pm-close.sh`, `test-setup.sh`
+- Commands at `.claude/commands/`:
+  - `pm-sync.md`, `pm-status.md`, `pm-close.md`
 - `.claude/.gitattributes` with `*.sh text eol=lf`
 
 Run `chmod +x` on all generated scripts.
 
-Cache in state: `backlog` choices, `github_repo`, `scripts_generated`.
+Cache in state under `gates.3`:
+- `backlog_mode` (backlog-md | github | both | other)
+- `github_repo` (owner/name or null)
+- `scripts_generated` (list of script names)
+Mark `gates.3.completed: true`, advance `current_gate: 3.5`
 
-## Gate 3.5: Script Verification
+### Gate 3.5: Script Verification
 
 Load `references/script-testing.md`.
 
@@ -131,9 +152,12 @@ Load `references/script-testing.md`.
 4. If failures: agent iterates fix→retest (max 3 attempts)
 5. If still failing after 3 attempts: report to user, offer manual fix or skip
 
-Cache: `scripts_tested` count, `all_passed` boolean.
+Cache in state under `gates.35`:
+- `scripts_tested` (count)
+- `all_passed` (boolean)
+Mark `gates.35.completed: true`
 
-## Generation Summary
+### Generation Summary
 
 After all gates pass, present:
 
